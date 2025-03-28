@@ -34,20 +34,6 @@ export class FigmaCommentsClient extends Client {
 		);
 	}
 
-	/**
-	 * 特定のコメントを取得
-	 * @param params コメント取得パラメータ（comment_idは必須）
-	 * @returns コメント
-	 */
-	// このエンドポイントはFigma API仕様書に記載されていません
-	// async getComment(
-	// 	params: FigmaCommentsParams & { comment_id: string },
-	// ): Promise<{ comment: FigmaComment }> {
-	// 	const { file_key, comment_id } = params;
-	// 	return await this.request<{ comment: FigmaComment }>(
-	// 		`/files/${file_key}/comments/${comment_id}`,
-	// 	);
-	// }
 
 	/**
 	 * コメントを投稿
@@ -92,41 +78,7 @@ export class FigmaCommentsClient extends Client {
 		);
 	}
 
-	/**
-	 * コメントを解決済みとしてマーク
-	 * @param fileKey ファイルキー
-	 * @param commentId コメントID
-	 * @returns 更新されたコメント
-	 */
-	// このエンドポイントはFigma API仕様書に記載されていません
-	// async resolveComment(
-	// 	fileKey: string,
-	// 	commentId: string,
-	// ): Promise<{ comment: FigmaComment }> {
-	// 	return await this.request<{ comment: FigmaComment }>(
-	// 		`/files/${fileKey}/comments/${commentId}`,
-	// 		"PATCH",
-	// 		{ resolved: true },
-	// 	);
-	// }
 
-	/**
-	 * コメントを未解決としてマーク
-	 * @param fileKey ファイルキー
-	 * @param commentId コメントID
-	 * @returns 更新されたコメント
-	 */
-	// このエンドポイントはFigma API仕様書に記載されていません
-	// async unresolveComment(
-	// 	fileKey: string,
-	// 	commentId: string,
-	// ): Promise<{ comment: FigmaComment }> {
-	// 	return await this.request<{ comment: FigmaComment }>(
-	// 		`/files/${fileKey}/comments/${commentId}`,
-	// 		"PATCH",
-	// 		{ resolved: false },
-	// 	);
-	// }
 
 	/**
 	 * ファイルの解決済みコメントを取得

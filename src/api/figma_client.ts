@@ -54,9 +54,6 @@ export class FigmaClient extends Client {
     return await this.files.getImage(fileKey, params);
   }
 
-  async getFileThumbnail(fileKey: string): Promise<FigmaImageResponse> {
-    return await this.files.getFileThumbnail(fileKey);
-  }
 
   async findComponents(fileKey: string): Promise<any> {
     return await this.files.findComponents(fileKey);
@@ -75,9 +72,6 @@ export class FigmaClient extends Client {
     return await this.comments.getComments(params);
   }
 
-  async getComment(params: { file_key: string; comment_id: string }): Promise<any> {
-    return await this.comments.getComment(params);
-  }
 
   async postComment(params: { file_key: string; message: string; client_meta?: any }): Promise<any> {
     return await this.comments.postComment(params);
@@ -91,13 +85,6 @@ export class FigmaClient extends Client {
     return await this.comments.deleteComment(fileKey, commentId);
   }
 
-  async resolveComment(fileKey: string, commentId: string): Promise<any> {
-    return await this.comments.resolveComment(fileKey, commentId);
-  }
-
-  async unresolveComment(fileKey: string, commentId: string): Promise<any> {
-    return await this.comments.unresolveComment(fileKey, commentId);
-  }
 
   async getResolvedComments(fileKey: string): Promise<any[]> {
     return await this.comments.getResolvedComments(fileKey);
@@ -112,21 +99,12 @@ export class FigmaClient extends Client {
     return await this.components.getTeamComponents(teamId);
   }
 
-  async getComponent(key: string): Promise<any> {
-    return await this.components.getComponent(key);
-  }
 
-  async getComponentSet(key: string): Promise<any> {
-    return await this.components.getComponentSet(key);
-  }
 
   async getTeamStyles(teamId: string): Promise<any> {
     return await this.components.getTeamStyles(teamId);
   }
 
-  async getStyle(key: string): Promise<any> {
-    return await this.components.getStyle(key);
-  }
 
   async getAllFileComponents(fileKey: string): Promise<any> {
     return await this.components.getAllFileComponents(fileKey);
@@ -140,9 +118,6 @@ export class FigmaClient extends Client {
     return await this.components.getAllFileStyles(fileKey);
   }
 
-  async getComponentImage(key: string, params?: { format?: "jpg" | "png" | "svg"; scale?: number }): Promise<string | null> {
-    return await this.components.getComponentImage(key, params);
-  }
 
   // Variables API メソッド
   async getVariables(params: { file_key: string }): Promise<any> {
