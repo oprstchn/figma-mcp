@@ -1,669 +1,461 @@
 /**
- * Model Context Protocol Core
+ * Model Context Protocol コア実装
  * 
- * Core implementation of the Model Context Protocol for sharing design context
- * between Figma and AI models like RooCode and Cline.
+ * MCPの基本構造とメッセージ処理を実装
  */
 
-// Type definitions for Model Context Protocol
+// 基本的なMCPメッセージ型
+export interface McpMessage {
+  jsonrpc: string;
+  id?: string | number;
+}
 
-// Metadata
-export interface ContextMetadata {
+// MCPリクエスト型
+export interface McpRequest extends McpMessage {
+  method: string;
+  params: Record<string, unknown>;
+}
+
+// MCPレスポンス型
+export interface McpResponse extends McpMessage {
+  result?: unknown;
+  error?: McpError;
+}
+
+// MCP通知型
+export interface McpNotification extends McpMessage {
+  method: string;
+  params: Record<string, unknown>;
+}
+
+// MCPエラー型
+export interface McpError {
+  code: number;
+  message: string;
+  data?: unknown;
+}
+
+// MCPサーバー設定
+export interface McpServerConfig {
+  name: string;
   version: string;
-  source: {
-    type: "figma";
-    fileKey: string;
-    fileName: string;
-    lastModified: string;
-    url?: string;
-  };
-  timestamp: string;
-  generator: string;
+  supportedProtocolVersions?: string[];
+  currentProtocolVersion?: string;
 }
 
-// Design Structure
-export type ElementType = 
-  | "DOCUMENT"
-  | "CANVAS"
-  | "FRAME"
-  | "GROUP"
-  | "COMPONENT"
-  | "INSTANCE"
-  | "TEXT"
-  | "VECTOR"
-  | "RECTANGLE"
-  | "ELLIPSE"
-  | "POLYGON"
-  | "LINE"
-  | "BOOLEAN_OPERATION"
-  | "STAR"
-  | "SLICE";
-
-export interface HierarchyNode {
-  id: string;
-  name: string;
-  type: ElementType;
-  children?: string[]; // 子要素のID配列
-  parent?: string; // 親要素のID
-}
-
-export interface DesignStructure {
-  root: string; // ルート要素のID
-  hierarchy: HierarchyNode[];
-}
-
-// Design Elements
-export type BlendMode = 
-  | "NORMAL"
-  | "MULTIPLY"
-  | "SCREEN"
-  | "OVERLAY"
-  | "DARKEN"
-  | "LIGHTEN"
-  | "COLOR_DODGE"
-  | "COLOR_BURN"
-  | "HARD_LIGHT"
-  | "SOFT_LIGHT"
-  | "DIFFERENCE"
-  | "EXCLUSION"
-  | "HUE"
-  | "SATURATION"
-  | "COLOR"
-  | "LUMINOSITY";
-
-export interface Color {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-}
-
-export interface GradientStop {
-  position: number;
-  color: Color;
-}
-
-export interface GradientPaint {
-  type: "GRADIENT_LINEAR" | "GRADIENT_RADIAL" | "GRADIENT_ANGULAR" | "GRADIENT_DIAMOND";
-  gradientStops: GradientStop[];
-  gradientHandlePositions: [
-    { x: number; y: number },
-    { x: number; y: number },
-    { x: number; y: number }
-  ];
-}
-
-export interface SolidPaint {
-  type: "SOLID";
-  color: Color;
-  opacity?: number;
-}
-
-export interface ImagePaint {
-  type: "IMAGE";
-  scaleMode: "FILL" | "FIT" | "CROP" | "TILE";
-  imageRef: string;
-  opacity?: number;
-}
-
-export type Fill = SolidPaint | GradientPaint | ImagePaint;
-
-export interface Stroke {
-  type: "SOLID" | "GRADIENT_LINEAR" | "GRADIENT_RADIAL" | "GRADIENT_ANGULAR" | "GRADIENT_DIAMOND";
-  color?: Color;
-  gradientStops?: GradientStop[];
-  opacity?: number;
-  weight: number;
-  dashPattern?: number[];
-  cap?: "NONE" | "ROUND" | "SQUARE" | "ARROW_LINES" | "ARROW_EQUILATERAL";
-  join?: "MITER" | "BEVEL" | "ROUND";
-  miterLimit?: number;
-}
-
-export interface Effect {
-  type: "DROP_SHADOW" | "INNER_SHADOW" | "LAYER_BLUR" | "BACKGROUND_BLUR";
-  visible: boolean;
-  radius: number;
-  color?: Color;
-  offset?: { x: number; y: number };
-  spread?: number;
-}
-
-export interface TextStyle {
-  fontFamily: string;
-  fontWeight: number;
-  fontSize: number;
-  letterSpacing: number;
-  lineHeight: number | { value: number; unit: "PIXELS" | "PERCENT" };
-  paragraphSpacing: number;
-  textCase: "ORIGINAL" | "UPPER" | "LOWER" | "TITLE";
-  textDecoration: "NONE" | "UNDERLINE" | "STRIKETHROUGH";
-  textAlignHorizontal: "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED";
-  textAlignVertical: "TOP" | "CENTER" | "BOTTOM";
-  fills: Fill[];
-}
-
-export interface ComponentProperty {
-  type: string;
-  value: unknown;
-  defaultValue: unknown;
-  variantOptions?: string[];
-}
-
-export interface Constraints {
-  horizontal: "LEFT" | "RIGHT" | "CENTER" | "SCALE" | "STRETCH";
-  vertical: "TOP" | "BOTTOM" | "CENTER" | "SCALE" | "STRETCH";
-}
-
-export interface LayoutProperties {
-  layoutMode?: "NONE" | "HORIZONTAL" | "VERTICAL";
-  paddingLeft?: number;
-  paddingRight?: number;
-  paddingTop?: number;
-  paddingBottom?: number;
-  itemSpacing?: number;
-  counterAxisSizingMode?: "FIXED" | "AUTO";
-  primaryAxisSizingMode?: "FIXED" | "AUTO";
-  primaryAxisAlignItems?: "MIN" | "CENTER" | "MAX" | "SPACE_BETWEEN";
-  counterAxisAlignItems?: "MIN" | "CENTER" | "MAX";
-}
-
-export interface DesignElement {
-  id: string;
-  name: string;
-  type: ElementType;
-  visible: boolean;
-  locked: boolean;
-  position?: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    rotation?: number;
-  };
-  style?: {
-    fills?: Fill[];
-    strokes?: Stroke[];
-    effects?: Effect[];
-    opacity?: number;
-    blendMode?: BlendMode;
-  };
-  text?: {
-    characters: string;
-    style: TextStyle;
-  };
-  componentProperties?: Record<string, ComponentProperty>;
-  constraints?: Constraints;
-  layoutProperties?: LayoutProperties;
-  [key: string]: unknown; // 拡張プロパティ
-}
-
-// Design Styles
-export interface ColorStyle {
-  id: string;
-  name: string;
-  description?: string;
-  fill: Fill;
-}
-
-export interface TextStyle {
-  id: string;
-  name: string;
-  description?: string;
-  fontFamily: string;
-  fontWeight: number;
-  fontSize: number;
-  letterSpacing: number;
-  lineHeight: number | { value: number; unit: "PIXELS" | "PERCENT" };
-  paragraphSpacing: number;
-  fills: Fill[];
-}
-
-export interface EffectStyle {
-  id: string;
-  name: string;
-  description?: string;
-  effects: Effect[];
-}
-
-export interface GridStyle {
-  id: string;
-  name: string;
-  description?: string;
-  pattern: "COLUMNS" | "ROWS" | "GRID";
-  sectionSize: number;
-  gutterSize?: number;
-  alignment: "MIN" | "MAX" | "CENTER" | "STRETCH";
-  count: number;
-  color: Color;
-}
-
-export interface DesignStyles {
-  colors: ColorStyle[];
-  text: TextStyle[];
-  effects: EffectStyle[];
-  grids: GridStyle[];
-}
-
-// Design Variables
-export interface VariableMode {
-  modeId: string;
-  name: string;
-}
-
-export interface VariableCollection {
-  id: string;
-  name: string;
-  key: string;
-  modes: VariableMode[];
-  defaultModeId: string;
-}
-
-export interface VariableValue {
-  type: string;
-  value: unknown;
-}
-
-export interface Variable {
-  id: string;
-  name: string;
-  key: string;
-  variableCollectionId: string;
-  resolvedType: string;
-  valuesByMode: Record<string, VariableValue>;
-  description?: string;
-  scopes?: string[];
-}
-
-export interface DesignVariables {
-  collections: VariableCollection[];
-  variables: Variable[];
-}
-
-export interface DesignContext {
-  structure: DesignStructure;
-  elements: DesignElement[];
-  styles: DesignStyles;
-  variables?: DesignVariables;
-}
-
-// Semantic Context
-export interface AccessibilityInfo {
-  role: string;
-  label?: string;
-  description?: string;
-  keyboardShortcut?: string;
-}
-
-export interface SemanticElement {
-  elementId: string;
-  role: string; // "header", "button", "navigation", "content", etc.
-  importance: "primary" | "secondary" | "tertiary";
-  state?: string[]; // "hover", "pressed", "disabled", etc.
-  accessibility?: AccessibilityInfo;
-}
-
-export interface SemanticRelationship {
-  type: "contains" | "connects" | "references" | "depends-on";
-  sourceId: string;
-  targetId: string;
-  description?: string;
-}
-
-export interface SemanticAnnotation {
-  elementId: string;
+// MCPリソース型
+export interface McpResource {
+  uri: string;
   text: string;
-  author?: string;
-  timestamp?: string;
+  metadata?: Record<string, unknown>;
 }
 
-export interface SemanticContext {
-  elements: SemanticElement[];
-  relationships: SemanticRelationship[];
-  annotations: SemanticAnnotation[];
+// MCPコンテンツ型
+export interface McpContent {
+  type: string;
+  text?: string;
+  uri?: string;
+  metadata?: Record<string, unknown>;
 }
 
-// Interaction Context
-export interface FlowStep {
-  id: string;
-  name: string;
-  elementId: string;
-  nextSteps?: string[]; // 次のステップのID配列
-  conditions?: string[];
-}
+// MCPリソーステンプレート
+export class McpResourceTemplate {
+  private template: string;
+  private options: Record<string, unknown>;
+  private paramRegex = /{([^}]+)}/g;
 
-export interface UserFlow {
-  id: string;
-  name: string;
-  description?: string;
-  steps: FlowStep[];
-}
-
-export interface ElementInteraction {
-  elementId: string;
-  type: "click" | "hover" | "drag" | "input" | "scroll";
-  response: {
-    type: "navigate" | "toggle" | "expand" | "submit" | "custom";
-    target?: string; // ターゲット要素のID
-    action?: string;
-  };
-}
-
-export interface Transition {
-  sourceId: string;
-  targetId: string;
-  trigger: string;
-  animation?: {
-    type: string;
-    duration: number;
-    easing: string;
-  };
-}
-
-export interface InteractionContext {
-  flows: UserFlow[];
-  interactions: ElementInteraction[];
-  transitions: Transition[];
-}
-
-// Asset References
-export interface ImageAsset {
-  id: string;
-  name: string;
-  url: string;
-  format: string;
-  dimensions: {
-    width: number;
-    height: number;
-  };
-  elementIds: string[]; // この画像を使用する要素のID配列
-}
-
-export interface IconAsset {
-  id: string;
-  name: string;
-  url: string;
-  format: string;
-  elementIds: string[]; // このアイコンを使用する要素のID配列
-}
-
-export interface FontAsset {
-  family: string;
-  style: string;
-  url?: string;
-  elementIds: string[]; // このフォントを使用する要素のID配列
-}
-
-export interface AssetReferences {
-  images: ImageAsset[];
-  icons: IconAsset[];
-  fonts: FontAsset[];
-}
-
-// Main Model Context
-export interface ModelContext {
-  metadata: ContextMetadata;
-  design: DesignContext;
-  semantics?: SemanticContext;
-  interactions?: InteractionContext;
-  assets?: AssetReferences;
-  extensions?: Record<string, unknown>;
-}
-
-/**
- * Model Context Protocol Core Class
- */
-export class ModelContextProtocol {
-  /**
-   * Create a new empty Model Context
-   * @param source Source information
-   * @returns Empty Model Context
-   */
-  static createEmptyContext(source: {
-    type: "figma";
-    fileKey: string;
-    fileName: string;
-    lastModified: string;
-    url?: string;
-  }): ModelContext {
-    return {
-      metadata: {
-        version: "1.0.0",
-        source,
-        timestamp: new Date().toISOString(),
-        generator: "model-context-protocol",
-      },
-      design: {
-        structure: {
-          root: "",
-          hierarchy: [],
-        },
-        elements: [],
-        styles: {
-          colors: [],
-          text: [],
-          effects: [],
-          grids: [],
-        },
-      },
-    };
+  constructor(template: string, options: Record<string, unknown> = {}) {
+    this.template = template;
+    this.options = options;
   }
 
-  /**
-   * Validate a Model Context
-   * @param context Model Context to validate
-   * @returns Validation result
-   */
-  static validateContext(context: ModelContext): { valid: boolean; errors: string[] } {
-    const errors: string[] = [];
+  // テンプレートからURIを生成
+  generateUri(params: Record<string, string>): string {
+    return this.template.replace(this.paramRegex, (match, paramName) => {
+      return params[paramName] || match;
+    });
+  }
 
-    // Check required fields
-    if (!context.metadata) {
-      errors.push("Missing metadata");
-    } else {
-      if (!context.metadata.version) errors.push("Missing metadata.version");
-      if (!context.metadata.source) errors.push("Missing metadata.source");
-      if (!context.metadata.timestamp) errors.push("Missing metadata.timestamp");
-      if (!context.metadata.generator) errors.push("Missing metadata.generator");
+  // URIからパラメータを抽出
+  extractParams(uri: string): Record<string, string> | null {
+    // テンプレートをパターンに変換
+    const pattern = this.template.replace(this.paramRegex, (match, paramName) => {
+      return `(?<${paramName}>[^/]+)`;
+    });
+    
+    const regex = new RegExp(`^${pattern}$`);
+    const match = uri.match(regex);
+    
+    if (!match || !match.groups) {
+      return null;
     }
+    
+    return match.groups;
+  }
 
-    if (!context.design) {
-      errors.push("Missing design");
-    } else {
-      if (!context.design.structure) errors.push("Missing design.structure");
-      if (!context.design.elements) errors.push("Missing design.elements");
-      if (!context.design.styles) errors.push("Missing design.styles");
-    }
+  // テンプレートを取得
+  getTemplate(): string {
+    return this.template;
+  }
 
-    // Check structure consistency
-    if (context.design?.structure) {
-      const { root, hierarchy } = context.design.structure;
-      
-      // Check if root exists in hierarchy
-      if (root && !hierarchy.some(node => node.id === root)) {
-        errors.push(`Root node ${root} not found in hierarchy`);
+  // オプションを取得
+  getOptions(): Record<string, unknown> {
+    return this.options;
+  }
+}
+
+// MCPサーバー実装
+export class McpServer {
+  private config: McpServerConfig;
+  private resources: Map<string, (uri: URL, params: Record<string, string>) => Promise<{ contents: McpResource[] }>>;
+  private resourceTemplates: Map<string, McpResourceTemplate>;
+  private tools: Map<string, (params: Record<string, unknown>) => Promise<{ content: McpContent[] }>>;
+  private prompts: Map<string, Record<string, unknown>>;
+  private transport: McpTransport | null = null;
+  private nextId = 1;
+
+  constructor(config: McpServerConfig) {
+    this.config = {
+      ...config,
+      supportedProtocolVersions: config.supportedProtocolVersions || ["2024-11-05", "2024-10-07"],
+      currentProtocolVersion: config.currentProtocolVersion || "2024-11-05"
+    };
+    this.resources = new Map();
+    this.resourceTemplates = new Map();
+    this.tools = new Map();
+    this.prompts = new Map();
+  }
+
+  // リソースを登録
+  resource(
+    name: string,
+    template: string | McpResourceTemplate,
+    handler: (uri: URL, params: Record<string, string>) => Promise<{ contents: McpResource[] }>
+  ): void {
+    const resourceTemplate = typeof template === 'string' 
+      ? new McpResourceTemplate(template)
+      : template;
+    
+    this.resourceTemplates.set(name, resourceTemplate);
+    this.resources.set(name, handler);
+  }
+
+  // ツールを登録
+  tool(
+    name: string,
+    schema: Record<string, unknown>,
+    handler: (params: Record<string, unknown>) => Promise<{ content: McpContent[] }>
+  ): void {
+    this.tools.set(name, handler);
+  }
+
+  // プロンプトを登録
+  prompt(
+    name: string,
+    definition: Record<string, unknown>
+  ): void {
+    this.prompts.set(name, definition);
+  }
+
+  // トランスポートに接続
+  async connect(transport: McpTransport): Promise<void> {
+    this.transport = transport;
+    await transport.connect(this.handleMessage.bind(this));
+    
+    // サーバー情報を通知
+    this.sendNotification("server.info", {
+      name: this.config.name,
+      version: this.config.version,
+      protocol: {
+        jsonrpc: "2.0",
+        version: this.config.currentProtocolVersion,
+        supported: this.config.supportedProtocolVersions
       }
+    });
+  }
 
-      // Check parent-child consistency
-      const nodeMap = new Map<string, HierarchyNode>();
-      hierarchy.forEach(node => nodeMap.set(node.id, node));
+  // メッセージハンドラー
+  private async handleMessage(message: string): Promise<void> {
+    try {
+      const parsed = JSON.parse(message);
+      
+      // リクエスト処理
+      if (parsed.method && parsed.id !== undefined) {
+        await this.handleRequest(parsed as McpRequest);
+      }
+      // 通知処理
+      else if (parsed.method) {
+        await this.handleNotification(parsed as McpNotification);
+      }
+      // レスポンス処理
+      else if (parsed.id !== undefined) {
+        await this.handleResponse(parsed as McpResponse);
+      }
+    } catch (error) {
+      console.error("Error handling message:", error);
+      
+      // パースエラーの場合はエラーレスポンスを送信
+      if (error instanceof SyntaxError) {
+        this.sendErrorResponse("unknown", -32700, "Parse error", error.message);
+      }
+    }
+  }
 
-      hierarchy.forEach(node => {
-        // Check if parent exists
-        if (node.parent && !nodeMap.has(node.parent)) {
-          errors.push(`Parent ${node.parent} of node ${node.id} not found in hierarchy`);
+  // リクエスト処理
+  private async handleRequest(request: McpRequest): Promise<void> {
+    const { method, params, id } = request;
+    
+    try {
+      let result: unknown;
+      
+      // メソッドに応じた処理
+      switch (method) {
+        case "resource.get":
+          result = await this.handleResourceGet(params);
+          break;
+        
+        case "resource.list":
+          result = await this.handleResourceList(params);
+          break;
+        
+        case "resource.templates":
+          result = await this.handleResourceTemplates();
+          break;
+        
+        case "tool.list":
+          result = await this.handleToolList();
+          break;
+        
+        case "tool.call":
+          result = await this.handleToolCall(params);
+          break;
+        
+        case "prompt.list":
+          result = await this.handlePromptList();
+          break;
+        
+        case "prompt.get":
+          result = await this.handlePromptGet(params);
+          break;
+        
+        default:
+          // 未知のメソッド
+          this.sendErrorResponse(id, -32601, "Method not found", `Method '${method}' not found`);
+          return;
+      }
+      
+      // 成功レスポンスを送信
+      this.sendResponse(id, result);
+    } catch (error) {
+      console.error(`Error handling request ${method}:`, error);
+      
+      // エラーレスポンスを送信
+      this.sendErrorResponse(
+        id,
+        -32603,
+        "Internal error",
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  // 通知処理
+  private async handleNotification(notification: McpNotification): Promise<void> {
+    const { method, params } = notification;
+    
+    try {
+      switch (method) {
+        case "client.info":
+          // クライアント情報を受信
+          console.log("Client info received:", params);
+          break;
+        
+        default:
+          console.warn(`Unknown notification method: ${method}`);
+          break;
+      }
+    } catch (error) {
+      console.error(`Error handling notification ${method}:`, error);
+    }
+  }
+
+  // レスポンス処理
+  private async handleResponse(response: McpResponse): Promise<void> {
+    // 現在のサーバー実装ではレスポンスは期待していない
+    console.log("Unexpected response received:", response);
+  }
+
+  // リソース取得処理
+  private async handleResourceGet(params: Record<string, unknown>): Promise<{ contents: McpResource[] }> {
+    const uriStr = params.uri as string;
+    if (!uriStr) {
+      throw new Error("Missing required parameter: uri");
+    }
+    
+    const uri = new URL(uriStr);
+    const scheme = uri.protocol.replace(':', '');
+    
+    // リソースハンドラーを探す
+    for (const [name, template] of this.resourceTemplates.entries()) {
+      const extractedParams = template.extractParams(uriStr);
+      if (extractedParams) {
+        const handler = this.resources.get(name);
+        if (handler) {
+          return await handler(uri, extractedParams);
         }
+      }
+    }
+    
+    throw new Error(`Resource not found: ${uriStr}`);
+  }
 
-        // Check if children exist
-        if (node.children) {
-          node.children.forEach(childId => {
-            if (!nodeMap.has(childId)) {
-              errors.push(`Child ${childId} of node ${node.id} not found in hierarchy`);
-            }
-          });
-        }
+  // リソース一覧処理
+  private async handleResourceList(params: Record<string, unknown>): Promise<{ resources: string[] }> {
+    // 実装されたリソーステンプレートからURIのリストを生成
+    const resources: string[] = [];
+    
+    for (const [name, template] of this.resourceTemplates.entries()) {
+      if (template.getOptions().list !== false) {
+        resources.push(template.getTemplate());
+      }
+    }
+    
+    return { resources };
+  }
+
+  // リソーステンプレート一覧処理
+  private async handleResourceTemplates(): Promise<{ templates: Record<string, unknown>[] }> {
+    const templates: Record<string, unknown>[] = [];
+    
+    for (const [name, template] of this.resourceTemplates.entries()) {
+      templates.push({
+        name,
+        template: template.getTemplate(),
+        options: template.getOptions()
       });
     }
+    
+    return { templates };
+  }
 
-    // Check element references
-    if (context.design?.elements && context.design?.structure) {
-      const elementIds = new Set(context.design.elements.map(el => el.id));
-      const hierarchyIds = new Set(context.design.structure.hierarchy.map(node => node.id));
+  // ツール一覧処理
+  private async handleToolList(): Promise<{ tools: string[] }> {
+    return { tools: Array.from(this.tools.keys()) };
+  }
 
-      // Check if all elements are in hierarchy
-      elementIds.forEach(id => {
-        if (!hierarchyIds.has(id)) {
-          errors.push(`Element ${id} not found in hierarchy`);
-        }
-      });
-
-      // Check if all hierarchy nodes have elements
-      hierarchyIds.forEach(id => {
-        if (!elementIds.has(id)) {
-          errors.push(`Hierarchy node ${id} has no corresponding element`);
-        }
-      });
+  // ツール呼び出し処理
+  private async handleToolCall(params: Record<string, unknown>): Promise<{ content: McpContent[] }> {
+    const toolName = params.name as string;
+    const toolParams = params.params as Record<string, unknown>;
+    
+    if (!toolName) {
+      throw new Error("Missing required parameter: name");
     }
+    
+    const tool = this.tools.get(toolName);
+    if (!tool) {
+      throw new Error(`Tool not found: ${toolName}`);
+    }
+    
+    return await tool(toolParams || {});
+  }
 
-    return {
-      valid: errors.length === 0,
-      errors,
+  // プロンプト一覧処理
+  private async handlePromptList(): Promise<{ prompts: string[] }> {
+    return { prompts: Array.from(this.prompts.keys()) };
+  }
+
+  // プロンプト取得処理
+  private async handlePromptGet(params: Record<string, unknown>): Promise<{ prompt: Record<string, unknown> }> {
+    const promptName = params.name as string;
+    
+    if (!promptName) {
+      throw new Error("Missing required parameter: name");
+    }
+    
+    const prompt = this.prompts.get(promptName);
+    if (!prompt) {
+      throw new Error(`Prompt not found: ${promptName}`);
+    }
+    
+    return { prompt };
+  }
+
+  // レスポンス送信
+  private sendResponse(id: string | number, result: unknown): void {
+    if (!this.transport) {
+      throw new Error("Transport not connected");
+    }
+    
+    const response: McpResponse = {
+      jsonrpc: "2.0",
+      id,
+      result
     };
+    
+    this.transport.send(JSON.stringify(response));
   }
 
-  /**
-   * Serialize a Model Context to JSON
-   * @param context Model Context to serialize
-   * @returns JSON string
-   */
-  static serializeContext(context: ModelContext): string {
-    return JSON.stringify(context, null, 2);
-  }
-
-  /**
-   * Parse a JSON string to Model Context
-   * @param json JSON string
-   * @returns Model Context
-   */
-  static parseContext(json: string): ModelContext {
-    return JSON.parse(json) as ModelContext;
-  }
-
-  /**
-   * Find an element by ID in a Model Context
-   * @param context Model Context
-   * @param id Element ID
-   * @returns Element or undefined if not found
-   */
-  static findElementById(context: ModelContext, id: string): DesignElement | undefined {
-    return context.design.elements.find(element => element.id === id);
-  }
-
-  /**
-   * Find elements by name in a Model Context
-   * @param context Model Context
-   * @param name Element name
-   * @returns Array of matching elements
-   */
-  static findElementsByName(context: ModelContext, name: string): DesignElement[] {
-    return context.design.elements.filter(element => element.name === name);
-  }
-
-  /**
-   * Find elements by type in a Model Context
-   * @param context Model Context
-   * @param type Element type
-   * @returns Array of matching elements
-   */
-  static findElementsByType(context: ModelContext, type: ElementType): DesignElement[] {
-    return context.design.elements.filter(element => element.type === type);
-  }
-
-  /**
-   * Get children of an element
-   * @param context Model Context
-   * @param id Parent element ID
-   * @returns Array of child elements
-   */
-  static getElementChildren(context: ModelContext, id: string): DesignElement[] {
-    const node = context.design.structure.hierarchy.find(node => node.id === id);
-    if (!node || !node.children || node.children.length === 0) {
-      return [];
+  // エラーレスポンス送信
+  private sendErrorResponse(id: string | number, code: number, message: string, data?: unknown): void {
+    if (!this.transport) {
+      throw new Error("Transport not connected");
     }
     
-    return context.design.elements.filter(element => node.children!.includes(element.id));
+    const response: McpResponse = {
+      jsonrpc: "2.0",
+      id,
+      error: {
+        code,
+        message,
+        data
+      }
+    };
+    
+    this.transport.send(JSON.stringify(response));
   }
 
-  /**
-   * Get parent of an element
-   * @param context Model Context
-   * @param id Child element ID
-   * @returns Parent element or undefined if not found
-   */
-  static getElementParent(context: ModelContext, id: string): DesignElement | undefined {
-    const node = context.design.structure.hierarchy.find(node => node.id === id);
-    if (!node || !node.parent) {
-      return undefined;
+  // 通知送信
+  private sendNotification(method: string, params: Record<string, unknown>): void {
+    if (!this.transport) {
+      throw new Error("Transport not connected");
     }
     
-    return context.design.elements.find(element => element.id === node.parent);
+    const notification: McpNotification = {
+      jsonrpc: "2.0",
+      method,
+      params
+    };
+    
+    this.transport.send(JSON.stringify(notification));
   }
 
-  /**
-   * Get semantic information for an element
-   * @param context Model Context
-   * @param id Element ID
-   * @returns Semantic element or undefined if not found
-   */
-  static getElementSemantics(context: ModelContext, id: string): SemanticElement | undefined {
-    if (!context.semantics) {
-      return undefined;
+  // リクエスト送信
+  async sendRequest(method: string, params: Record<string, unknown>): Promise<unknown> {
+    if (!this.transport) {
+      throw new Error("Transport not connected");
     }
     
-    return context.semantics.elements.find(semantic => semantic.elementId === id);
+    const id = this.nextId++;
+    
+    const request: McpRequest = {
+      jsonrpc: "2.0",
+      id,
+      method,
+      params
+    };
+    
+    this.transport.send(JSON.stringify(request));
+    
+    // 注意: 現在の実装ではレスポンスの待機は行っていない
+    // 実際の実装では、Promiseを返し、レスポンスを待機する必要がある
+    return Promise.resolve();
   }
+}
 
-  /**
-   * Get interactions for an element
-   * @param context Model Context
-   * @param id Element ID
-   * @returns Array of element interactions
-   */
-  static getElementInteractions(context: ModelContext, id: string): ElementInteraction[] {
-    if (!context.interactions) {
-      return [];
-    }
-    
-    return context.interactions.interactions.filter(interaction => interaction.elementId === id);
-  }
-
-  /**
-   * Add an extension to the Model Context
-   * @param context Model Context
-   * @param name Extension name
-   * @param data Extension data
-   * @returns Updated Model Context
-   */
-  static addExtension(context: ModelContext, name: string, data: unknown): ModelContext {
-    if (!context.extensions) {
-      context.extensions = {};
-    }
-    
-    context.extensions[name] = data;
-    return context;
-  }
-
-  /**
-   * Get an extension from the Model Context
-   * @param context Model Context
-   * @param name Extension name
-   * @returns Extension data or undefined if not found
-   */
-  static getExtension(context: ModelContext, name: string): unknown | undefined {
-    if (!context.extensions) {
-      return undefined;
-    }
-    
-    return context.extensions[name];
-  }
+// MCPトランスポートインターフェース
+export interface McpTransport {
+  connect(messageHandler: (message: string) => Promise<void>): Promise<void>;
+  send(message: string): void;
+  disconnect(): Promise<void>;
 }

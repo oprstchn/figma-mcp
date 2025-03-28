@@ -1,228 +1,108 @@
 /**
- * Figma Components and Styles API
+ * Figma コンポーネントアクセスAPI
  * 
- * Implementation of Figma API endpoints for accessing components and styles.
+ * Figmaコンポーネント、コンポーネントセット、スタイルへのアクセスを提供するメソッド
  */
 
 import { FigmaClient } from "./figma_client.ts";
-
-// Type definitions for Figma API responses
-export interface User {
-  id: string;
-  handle: string;
-  img_url: string;
-  email?: string;
-}
-
-export interface ContainingFrame {
-  name: string;
-  node_id: string;
-  background_color: string;
-  page_id: string;
-  page_name: string;
-}
-
-export interface ComponentPropertyDefinition {
-  type: string;
-  defaultValue: unknown;
-  variantOptions?: string[];
-  preferredValues?: unknown[];
-}
-
-export interface Component {
-  key: string;
-  file_key: string;
-  node_id: string;
-  thumbnail_url: string;
-  name: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  user: User;
-  containing_frame: ContainingFrame;
-  component_set_id?: string;
-  component_property_definitions?: Record<string, ComponentPropertyDefinition>;
-}
-
-export interface ComponentSet {
-  key: string;
-  file_key: string;
-  node_id: string;
-  thumbnail_url: string;
-  name: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  user: User;
-  containing_frame: ContainingFrame;
-  component_property_definitions?: Record<string, ComponentPropertyDefinition>;
-}
-
-export interface Style {
-  key: string;
-  file_key: string;
-  node_id: string;
-  style_type: 'FILL' | 'TEXT' | 'EFFECT' | 'GRID';
-  thumbnail_url: string;
-  name: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  user: User;
-  sort_position: string;
-}
-
-export interface Cursor {
-  before?: string;
-  after?: string;
-}
-
-export interface GetComponentsResponse {
-  error: boolean;
-  status: number;
-  meta: {
-    components: Component[];
-    cursor: Cursor;
-  };
-}
-
-export interface GetComponentSetsResponse {
-  error: boolean;
-  status: number;
-  meta: {
-    component_sets: ComponentSet[];
-    cursor: Cursor;
-  };
-}
-
-export interface GetStylesResponse {
-  error: boolean;
-  status: number;
-  meta: {
-    styles: Style[];
-    cursor: Cursor;
-  };
-}
+import { 
+  FigmaComponent,
+  FigmaComponentSet,
+  FigmaStyle
+} from "./types.ts";
 
 /**
- * Figma Components and Styles API client extension
+ * Figmaコンポーネントアクセスクライアント
  */
-export class FigmaComponentsAPI {
-  private client: FigmaClient;
-
+export class FigmaComponentsClient extends FigmaClient {
   /**
-   * Creates a new Figma Components API client
-   * @param client Base Figma API client
+   * チームのコンポーネントを取得
+   * @param teamId チームID
+   * @returns コンポーネントリスト
    */
-  constructor(client: FigmaClient) {
-    this.client = client;
+  async getTeamComponents(teamId: string): Promise<{ components: FigmaComponent[] }> {
+    return await this.request<{ components: FigmaComponent[] }>(`/teams/${teamId}/components`);
   }
 
   /**
-   * Get published components from a team library
-   * @param teamId The team ID
-   * @param pageSize Number of items per page (default: 30)
-   * @param cursor Pagination cursor
-   * @returns Published components
+   * コンポーネントの詳細を取得
+   * @param key コンポーネントキー
+   * @returns コンポーネント詳細
    */
-  async getTeamComponents(
-    teamId: string,
-    pageSize?: number,
-    cursor?: string
-  ): Promise<GetComponentsResponse> {
-    const params: Record<string, string> = {};
-    
-    if (pageSize !== undefined) {
-      params.page_size = pageSize.toString();
-    }
-    
-    if (cursor) {
-      params.cursor = cursor;
-    }
-    
-    return this.client.get<GetComponentsResponse>(`/teams/${teamId}/components`, params);
+  async getComponent(key: string): Promise<{ component: FigmaComponent }> {
+    return await this.request<{ component: FigmaComponent }>(`/components/${key}`);
   }
 
   /**
-   * Get published component sets from a team library
-   * @param teamId The team ID
-   * @param pageSize Number of items per page (default: 30)
-   * @param cursor Pagination cursor
-   * @returns Published component sets
+   * コンポーネントセットの詳細を取得
+   * @param key コンポーネントセットキー
+   * @returns コンポーネントセット詳細
    */
-  async getTeamComponentSets(
-    teamId: string,
-    pageSize?: number,
-    cursor?: string
-  ): Promise<GetComponentSetsResponse> {
-    const params: Record<string, string> = {};
-    
-    if (pageSize !== undefined) {
-      params.page_size = pageSize.toString();
-    }
-    
-    if (cursor) {
-      params.cursor = cursor;
-    }
-    
-    return this.client.get<GetComponentSetsResponse>(`/teams/${teamId}/component_sets`, params);
+  async getComponentSet(key: string): Promise<{ component_set: FigmaComponentSet }> {
+    return await this.request<{ component_set: FigmaComponentSet }>(`/component_sets/${key}`);
   }
 
   /**
-   * Get published styles from a team library
-   * @param teamId The team ID
-   * @param pageSize Number of items per page (default: 30)
-   * @param cursor Pagination cursor
-   * @param styleType Filter by style type
-   * @returns Published styles
+   * チームのスタイルを取得
+   * @param teamId チームID
+   * @returns スタイルリスト
    */
-  async getTeamStyles(
-    teamId: string,
-    pageSize?: number,
-    cursor?: string,
-    styleType?: 'FILL' | 'TEXT' | 'EFFECT' | 'GRID'
-  ): Promise<GetStylesResponse> {
-    const params: Record<string, string> = {};
-    
-    if (pageSize !== undefined) {
-      params.page_size = pageSize.toString();
-    }
-    
-    if (cursor) {
-      params.cursor = cursor;
-    }
-    
-    if (styleType) {
-      params.style_type = styleType;
-    }
-    
-    return this.client.get<GetStylesResponse>(`/teams/${teamId}/styles`, params);
+  async getTeamStyles(teamId: string): Promise<{ styles: FigmaStyle[] }> {
+    return await this.request<{ styles: FigmaStyle[] }>(`/teams/${teamId}/styles`);
   }
 
   /**
-   * Get a specific component by key
-   * @param key The component key
-   * @returns The component metadata
+   * スタイルの詳細を取得
+   * @param key スタイルキー
+   * @returns スタイル詳細
    */
-  async getComponent(key: string): Promise<Component> {
-    return this.client.get<Component>(`/components/${key}`);
+  async getStyle(key: string): Promise<{ style: FigmaStyle }> {
+    return await this.request<{ style: FigmaStyle }>(`/styles/${key}`);
   }
 
   /**
-   * Get a specific component set by key
-   * @param key The component set key
-   * @returns The component set metadata
+   * ファイル内のすべてのコンポーネントを取得
+   * @param fileKey ファイルキー
+   * @returns コンポーネントマップ
    */
-  async getComponentSet(key: string): Promise<ComponentSet> {
-    return this.client.get<ComponentSet>(`/component_sets/${key}`);
+  async getAllFileComponents(fileKey: string): Promise<Record<string, FigmaComponent>> {
+    const response = await this.request<any>(`/files/${fileKey}`);
+    return response.components || {};
   }
 
   /**
-   * Get a specific style by key
-   * @param key The style key
-   * @returns The style metadata
+   * ファイル内のすべてのコンポーネントセットを取得
+   * @param fileKey ファイルキー
+   * @returns コンポーネントセットマップ
    */
-  async getStyle(key: string): Promise<Style> {
-    return this.client.get<Style>(`/styles/${key}`);
+  async getAllFileComponentSets(fileKey: string): Promise<Record<string, FigmaComponentSet>> {
+    const response = await this.request<any>(`/files/${fileKey}`);
+    return response.componentSets || {};
+  }
+
+  /**
+   * ファイル内のすべてのスタイルを取得
+   * @param fileKey ファイルキー
+   * @returns スタイルマップ
+   */
+  async getAllFileStyles(fileKey: string): Promise<Record<string, FigmaStyle>> {
+    const response = await this.request<any>(`/files/${fileKey}`);
+    return response.styles || {};
+  }
+
+  /**
+   * コンポーネントの画像を取得
+   * @param key コンポーネントキー
+   * @param params 画像パラメータ
+   * @returns 画像URL
+   */
+  async getComponentImage(key: string, params: { format?: 'jpg' | 'png' | 'svg', scale?: number } = {}): Promise<string | null> {
+    try {
+      const response = await this.request<any>(`/images/components/${key}`, "GET", params);
+      return response.images?.[key] || null;
+    } catch (error) {
+      console.error(`Error getting component image for ${key}:`, error);
+      return null;
+    }
   }
 }

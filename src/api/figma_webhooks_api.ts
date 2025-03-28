@@ -1,108 +1,103 @@
 /**
- * Figma Webhooks API
+ * Figma Webhook API
  * 
- * Implementation of Figma API endpoints for managing webhooks.
+ * Figma Webhookの作成、管理、削除を提供するメソッド
  */
 
 import { FigmaClient } from "./figma_client.ts";
-
-// Type definitions for Figma API responses
-export interface Webhook {
-  id: string;
-  team_id: string;
-  event_type: WebhookEventType;
-  client_id: string;
-  endpoint: string;
-  passcode: string;
-  status: WebhookStatus;
-  description: string;
-  protocol_version: string;
-}
-
-export type WebhookEventType = 
-  | 'FILE_UPDATE' 
-  | 'FILE_VERSION_UPDATE' 
-  | 'FILE_COMMENT' 
-  | 'FILE_DELETE' 
-  | 'LIBRARY_PUBLISH';
-
-export type WebhookStatus = 'ACTIVE' | 'INACTIVE' | 'ERROR';
-
-export interface GetWebhooksResponse {
-  webhooks: Webhook[];
-}
-
-export interface CreateWebhookRequest {
-  event_type: WebhookEventType;
-  endpoint: string;
-  passcode: string;
-  description?: string;
-}
-
-export interface UpdateWebhookRequest {
-  endpoint?: string;
-  passcode?: string;
-  description?: string;
-}
+import { 
+  FigmaWebhook,
+  FigmaWebhookParams,
+  FigmaWebhooksResponse
+} from "./types.ts";
 
 /**
- * Figma Webhooks API client extension
+ * Figma Webhookアクセスクライアント
  */
-export class FigmaWebhooksAPI {
-  private client: FigmaClient;
-
+export class FigmaWebhooksClient extends FigmaClient {
   /**
-   * Creates a new Figma Webhooks API client
-   * @param client Base Figma API client
+   * チームのWebhookを取得
+   * @param teamId チームID
+   * @returns Webhookリスト
    */
-  constructor(client: FigmaClient) {
-    this.client = client;
+  async getTeamWebhooks(teamId: string): Promise<FigmaWebhooksResponse> {
+    return await this.request<FigmaWebhooksResponse>(`/teams/${teamId}/webhooks`);
   }
 
   /**
-   * Get webhooks for a team
-   * @param teamId The team ID
-   * @returns Webhooks for the team
+   * Webhookを作成
+   * @param params Webhook作成パラメータ
+   * @returns 作成されたWebhook
    */
-  async getWebhooks(teamId: string): Promise<GetWebhooksResponse> {
-    return this.client.get<GetWebhooksResponse>(`/teams/${teamId}/webhooks`);
+  async createWebhook(params: FigmaWebhookParams): Promise<{ webhook: FigmaWebhook }> {
+    const { team_id, ...webhookData } = params;
+    return await this.request<{ webhook: FigmaWebhook }>(
+      `/teams/${team_id}/webhooks`,
+      "POST",
+      webhookData
+    );
   }
 
   /**
-   * Create a webhook for a team
-   * @param teamId The team ID
-   * @param webhook Webhook data to create
-   * @returns The created webhook
+   * Webhookを削除
+   * @param teamId チームID
+   * @param webhookId WebhookID
+   * @returns 削除結果
    */
-  async createWebhook(teamId: string, webhook: CreateWebhookRequest): Promise<Webhook> {
-    return this.client.post<Webhook>(`/teams/${teamId}/webhooks`, webhook);
+  async deleteWebhook(teamId: string, webhookId: string): Promise<{ success: boolean }> {
+    return await this.request<{ success: boolean }>(
+      `/teams/${teamId}/webhooks/${webhookId}`,
+      "DELETE"
+    );
   }
 
   /**
-   * Get a specific webhook
-   * @param webhookId The webhook ID
-   * @returns The webhook
+   * 特定のWebhookを取得
+   * @param teamId チームID
+   * @param webhookId WebhookID
+   * @returns Webhook詳細
    */
-  async getWebhook(webhookId: string): Promise<Webhook> {
-    return this.client.get<Webhook>(`/webhooks/${webhookId}`);
+  async getWebhook(teamId: string, webhookId: string): Promise<{ webhook: FigmaWebhook }> {
+    const response = await this.getTeamWebhooks(teamId);
+    const webhook = response.webhooks.find(wh => wh.id === webhookId);
+    
+    if (!webhook) {
+      throw new Error(`Webhook with ID ${webhookId} not found in team ${teamId}`);
+    }
+    
+    return { webhook };
   }
 
   /**
-   * Update a webhook
-   * @param webhookId The webhook ID
-   * @param updates Webhook data to update
-   * @returns The updated webhook
+   * 特定のイベントタイプのWebhookを取得
+   * @param teamId チームID
+   * @param eventType イベントタイプ
+   * @returns Webhookリスト
    */
-  async updateWebhook(webhookId: string, updates: UpdateWebhookRequest): Promise<Webhook> {
-    return this.client.put<Webhook>(`/webhooks/${webhookId}`, updates);
+  async getWebhooksByEventType(teamId: string, eventType: string): Promise<FigmaWebhook[]> {
+    const response = await this.getTeamWebhooks(teamId);
+    return response.webhooks.filter(webhook => webhook.event_type === eventType);
   }
 
   /**
-   * Delete a webhook
-   * @param webhookId The webhook ID
-   * @returns Success status
+   * Webhookのステータスを確認
+   * @param teamId チームID
+   * @param webhookId WebhookID
+   * @returns Webhookのステータス
    */
-  async deleteWebhook(webhookId: string): Promise<{ success: boolean }> {
-    return this.client.delete<{ success: boolean }>(`/webhooks/${webhookId}`);
+  async checkWebhookStatus(teamId: string, webhookId: string): Promise<string> {
+    const { webhook } = await this.getWebhook(teamId, webhookId);
+    return webhook.status;
+  }
+
+  /**
+   * 特定のエンドポイントに対するWebhookを検索
+   * @param teamId チームID
+   * @param endpoint エンドポイントURL
+   * @returns Webhookリスト
+   */
+  async findWebhooksByEndpoint(teamId: string, endpoint: string): Promise<FigmaWebhook[]> {
+    const response = await this.getTeamWebhooks(teamId);
+    return response.webhooks.filter(webhook => webhook.endpoint === endpoint);
   }
 }

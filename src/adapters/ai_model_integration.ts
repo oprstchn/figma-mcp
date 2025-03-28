@@ -1,400 +1,303 @@
 /**
- * RooCode and Cline Integration
+ * AI モデル統合
  * 
- * Integration interfaces for RooCode and Cline AI models.
+ * RooCodeやClineとの統合インターフェース
  */
 
-import { ModelContext } from "../model/model_context_protocol.ts";
-
-/**
- * Base interface for AI model integrations
- */
-export interface AIModelIntegration {
-  /**
-   * Get the name of the AI model
-   * @returns Model name
-   */
-  getModelName(): string;
-  
-  /**
-   * Format Model Context for the AI model
-   * @param context Model Context
-   * @returns Formatted context string
-   */
-  formatContext(context: ModelContext): string;
-  
-  /**
-   * Inject Model Context into a prompt
-   * @param context Model Context
-   * @param prompt Original prompt
-   * @returns Enhanced prompt with context
-   */
-  injectContext(context: ModelContext, prompt: string): string;
-}
+import { McpServer, McpResourceTemplate, McpContent } from "../model/model_context_protocol.ts";
+import { FigmaClient } from "../api/figma_client.ts";
+import { FigmaFileClient } from "../api/figma_file_api.ts";
+import { FigmaComponentsClient } from "../api/figma_components_api.ts";
+import { FigmaCommentsClient } from "../api/figma_comments_api.ts";
+import { FigmaToModelContextAdapter, FigmaModelContextResourceProvider } from "./figma_to_model_context_adapter.ts";
+import { FigmaAuthConfig } from "../api/types.ts";
 
 /**
- * RooCode integration implementation
+ * Figma MCP サーバー
  */
-export class RooCodeIntegration implements AIModelIntegration {
+export class FigmaMcpServer {
+  private server: McpServer;
+  private figmaClient: FigmaClient;
+  private fileClient: FigmaFileClient;
+  private componentsClient: FigmaComponentsClient;
+  private commentsClient: FigmaCommentsClient;
+  private adapter: FigmaToModelContextAdapter;
+  private resourceProvider: FigmaModelContextResourceProvider;
+
   /**
-   * Get the name of the AI model
-   * @returns Model name
+   * Figma MCP サーバーを初期化
+   * @param authConfig Figma認証設定
+   * @param serverName サーバー名
+   * @param serverVersion サーバーバージョン
    */
-  getModelName(): string {
-    return "RooCode";
-  }
-  
-  /**
-   * Format Model Context for RooCode
-   * @param context Model Context
-   * @returns Formatted context string
-   */
-  formatContext(context: ModelContext): string {
-    // RooCode prefers a specific format for design context
-    const formattedContext = {
-      designContext: {
-        source: context.metadata.source,
-        fileInfo: {
-          name: context.metadata.source.fileName,
-          lastModified: context.metadata.source.lastModified,
-          url: context.metadata.source.url,
-        },
-        structure: this.formatStructure(context),
-        elements: this.formatElements(context),
-        styles: context.design.styles,
-      },
-      semantics: context.semantics,
-    };
-    
-    return JSON.stringify(formattedContext);
-  }
-  
-  /**
-   * Format structure for RooCode
-   * @param context Model Context
-   * @returns Formatted structure
-   */
-  private formatStructure(context: ModelContext): any {
-    // RooCode prefers a tree structure rather than flat hierarchy
-    const nodeMap = new Map<string, any>();
-    
-    // Create node map
-    for (const node of context.design.structure.hierarchy) {
-      nodeMap.set(node.id, {
-        id: node.id,
-        name: node.name,
-        type: node.type,
-        children: [],
-      });
-    }
-    
-    // Build tree
-    for (const node of context.design.structure.hierarchy) {
-      if (node.parent && nodeMap.has(node.parent)) {
-        const parentNode = nodeMap.get(node.parent);
-        parentNode.children.push(nodeMap.get(node.id));
-      }
-    }
-    
-    // Return root node
-    return nodeMap.get(context.design.structure.root);
-  }
-  
-  /**
-   * Format elements for RooCode
-   * @param context Model Context
-   * @returns Formatted elements
-   */
-  private formatElements(context: ModelContext): any {
-    // RooCode prefers elements with additional metadata
-    return context.design.elements.map(element => {
-      const formattedElement = { ...element };
-      
-      // Add semantic information if available
-      if (context.semantics) {
-        const semanticInfo = context.semantics.elements.find(
-          semantic => semantic.elementId === element.id
-        );
-        
-        if (semanticInfo) {
-          formattedElement.semantic = semanticInfo;
-        }
-      }
-      
-      // Add interaction information if available
-      if (context.interactions) {
-        const interactionInfo = context.interactions.interactions.filter(
-          interaction => interaction.elementId === element.id
-        );
-        
-        if (interactionInfo.length > 0) {
-          formattedElement.interactions = interactionInfo;
-        }
-      }
-      
-      return formattedElement;
+  constructor(
+    authConfig: FigmaAuthConfig,
+    serverName: string = "Figma MCP Server",
+    serverVersion: string = "1.0.0"
+  ) {
+    // MCPサーバーを初期化
+    this.server = new McpServer({
+      name: serverName,
+      version: serverVersion
     });
-  }
-  
-  /**
-   * Inject Model Context into a prompt for RooCode
-   * @param context Model Context
-   * @param prompt Original prompt
-   * @returns Enhanced prompt with context
-   */
-  injectContext(context: ModelContext, prompt: string): string {
-    const formattedContext = this.formatContext(context);
-    
-    return `
-[DESIGN_CONTEXT]
-${formattedContext}
-[/DESIGN_CONTEXT]
 
-${prompt}
-`;
-  }
-}
+    // Figmaクライアントを初期化
+    this.figmaClient = new FigmaClient(authConfig);
+    this.fileClient = new FigmaFileClient(authConfig);
+    this.componentsClient = new FigmaComponentsClient(authConfig);
+    this.commentsClient = new FigmaCommentsClient(authConfig);
 
-/**
- * Cline integration implementation
- */
-export class ClineIntegration implements AIModelIntegration {
-  /**
-   * Get the name of the AI model
-   * @returns Model name
-   */
-  getModelName(): string {
-    return "Cline";
+    // アダプターを初期化
+    this.adapter = new FigmaToModelContextAdapter();
+    this.resourceProvider = new FigmaModelContextResourceProvider();
+
+    // リソースとツールを登録
+    this.registerResources();
+    this.registerTools();
   }
-  
+
   /**
-   * Format Model Context for Cline
-   * @param context Model Context
-   * @returns Formatted context string
+   * リソースを登録
    */
-  formatContext(context: ModelContext): string {
-    // Cline prefers a more concise format with specific sections
-    const formattedContext = {
-      metadata: {
-        source: context.metadata.source.type,
-        file: context.metadata.source.fileName,
-        url: context.metadata.source.url,
-      },
-      design: {
-        elements: this.formatElementsForCline(context),
-        colors: this.extractColors(context),
-        typography: this.extractTypography(context),
-        components: this.extractComponents(context),
-      },
-    };
-    
-    return JSON.stringify(formattedContext, null, 2);
-  }
-  
-  /**
-   * Format elements for Cline
-   * @param context Model Context
-   * @returns Formatted elements for Cline
-   */
-  private formatElementsForCline(context: ModelContext): any[] {
-    // Cline prefers a flattened structure with path information
-    const result: any[] = [];
-    const nodeMap = new Map<string, HierarchyNode>();
-    
-    // Create node map for quick lookup
-    for (const node of context.design.structure.hierarchy) {
-      nodeMap.set(node.id, node);
-    }
-    
-    // Process each element
-    for (const element of context.design.elements) {
-      // Skip document and canvas nodes
-      if (element.type === "DOCUMENT" || element.type === "CANVAS") {
-        continue;
+  private registerResources(): void {
+    // ファイルリソース
+    this.server.resource(
+      "figma-file",
+      this.resourceProvider.getFileResourceTemplate(),
+      async (uri, params) => {
+        const fileKey = params.fileKey;
+        const file = await this.fileClient.getFile({ key: fileKey });
+        const resource = this.adapter.convertFileToResource(file, fileKey);
+        return { contents: [resource] };
       }
-      
-      // Get path to element
-      const path = this.getElementPath(element.id, nodeMap);
-      
-      // Create formatted element
-      const formattedElement = {
-        id: element.id,
-        name: element.name,
-        type: element.type,
-        path,
-        position: element.position,
-        style: element.style,
-        text: element.text,
-      };
-      
-      result.push(formattedElement);
-    }
-    
-    return result;
+    );
+
+    // ノードリソース
+    this.server.resource(
+      "figma-node",
+      this.resourceProvider.getNodeResourceTemplate(),
+      async (uri, params) => {
+        const { fileKey, nodeId } = params;
+        const node = await this.fileClient.getNode(fileKey, nodeId);
+        if (!node) {
+          throw new Error(`Node not found: ${nodeId}`);
+        }
+        const resource = this.adapter.convertNodeToResource(node, fileKey, nodeId);
+        return { contents: [resource] };
+      }
+    );
+
+    // コンポーネントリソース
+    this.server.resource(
+      "figma-component",
+      this.resourceProvider.getComponentResourceTemplate(),
+      async (uri, params) => {
+        const componentKey = params.componentKey;
+        const response = await this.componentsClient.getComponent(componentKey);
+        const resource = this.adapter.convertComponentToResource(response.component);
+        return { contents: [resource] };
+      }
+    );
+
+    // コメントリソース
+    this.server.resource(
+      "figma-comment",
+      this.resourceProvider.getCommentResourceTemplate(),
+      async (uri, params) => {
+        const { fileKey, commentId } = params;
+        const response = await this.commentsClient.getComment({ file_key: fileKey, comment_id: commentId });
+        const resource = this.adapter.convertCommentToResource(response.comment, fileKey);
+        return { contents: [resource] };
+      }
+    );
   }
-  
+
   /**
-   * Get path to element
-   * @param elementId Element ID
-   * @param nodeMap Node map
-   * @returns Path to element
+   * ツールを登録
    */
-  private getElementPath(elementId: string, nodeMap: Map<string, any>): string {
-    const path: string[] = [];
-    let currentId = elementId;
-    
-    while (currentId) {
-      const node = nodeMap.get(currentId);
-      if (!node) break;
-      
-      path.unshift(node.name);
-      currentId = node.parent;
-    }
-    
-    return path.join(" > ");
-  }
-  
-  /**
-   * Extract colors from context
-   * @param context Model Context
-   * @returns Extracted colors
-   */
-  private extractColors(context: ModelContext): any[] {
-    // Extract colors from styles
-    const colors = context.design.styles.colors.map(colorStyle => ({
-      name: colorStyle.name,
-      value: this.colorToHex(colorStyle.fill.type === "SOLID" 
-        ? (colorStyle.fill as any).color 
-        : { r: 0, g: 0, b: 0, a: 1 }),
-    }));
-    
-    // Extract colors from variables if available
-    if (context.design.variables) {
-      const colorVariables = context.design.variables.variables.filter(
-        variable => variable.resolvedType === "COLOR"
-      );
-      
-      for (const variable of colorVariables) {
-        // Get color from default mode
-        const collection = context.design.variables.collections.find(
-          c => c.id === variable.variableCollectionId
-        );
+  private registerTools(): void {
+    // ファイル検索ツール
+    this.server.tool(
+      "search-figma-files",
+      { query: "string" },
+      async (params) => {
+        const query = params.query as string;
+        // 注意: 実際のFigma APIにはファイル検索エンドポイントがないため、
+        // ここではモックデータを返しています。実際の実装では、
+        // Figmaプラグインやその他の方法でファイル検索を行う必要があります。
+        return {
+          content: [
+            {
+              type: "text",
+              text: `検索クエリ "${query}" に一致するFigmaファイルの検索結果です。\n\n` +
+                    `注意: Figma APIには直接的なファイル検索機能がないため、この機能は制限されています。`
+            }
+          ]
+        };
+      }
+    );
+
+    // コンポーネント検索ツール
+    this.server.tool(
+      "search-figma-components",
+      { teamId: "string", query: "string" },
+      async (params) => {
+        const teamId = params.teamId as string;
+        const query = params.query as string;
         
-        if (collection) {
-          const defaultModeId = collection.defaultModeId;
-          const value = variable.valuesByMode[defaultModeId];
+        try {
+          const response = await this.componentsClient.getTeamComponents(teamId);
+          const filteredComponents = response.components.filter(
+            comp => comp.name.toLowerCase().includes(query.toLowerCase())
+          );
           
-          if (value && value.type === "COLOR") {
-            colors.push({
-              name: variable.name,
-              value: this.colorToHex(value.value as any),
-              isVariable: true,
+          let resultText = `チームID ${teamId} 内で "${query}" に一致するコンポーネント:\n\n`;
+          
+          if (filteredComponents.length === 0) {
+            resultText += "一致するコンポーネントが見つかりませんでした。";
+          } else {
+            filteredComponents.forEach(comp => {
+              resultText += `- ${comp.name} (Key: ${comp.key})\n`;
+              if (comp.description) {
+                resultText += `  説明: ${comp.description}\n`;
+              }
+              resultText += "\n";
             });
           }
+          
+          return {
+            content: [
+              {
+                type: "text",
+                text: resultText
+              }
+            ]
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `エラーが発生しました: ${error instanceof Error ? error.message : String(error)}`
+              }
+            ]
+          };
         }
       }
-    }
-    
-    return colors;
-  }
-  
-  /**
-   * Convert color to hex
-   * @param color Color object
-   * @returns Hex color string
-   */
-  private colorToHex(color: { r: number; g: number; b: number; a: number }): string {
-    const r = Math.round(color.r * 255).toString(16).padStart(2, "0");
-    const g = Math.round(color.g * 255).toString(16).padStart(2, "0");
-    const b = Math.round(color.b * 255).toString(16).padStart(2, "0");
-    
-    if (color.a < 1) {
-      const a = Math.round(color.a * 255).toString(16).padStart(2, "0");
-      return `#${r}${g}${b}${a}`;
-    }
-    
-    return `#${r}${g}${b}`;
-  }
-  
-  /**
-   * Extract typography from context
-   * @param context Model Context
-   * @returns Extracted typography
-   */
-  private extractTypography(context: ModelContext): any[] {
-    // Extract typography from text styles
-    return context.design.styles.text.map(textStyle => ({
-      name: textStyle.name,
-      fontFamily: textStyle.fontFamily,
-      fontSize: textStyle.fontSize,
-      fontWeight: textStyle.fontWeight,
-      lineHeight: textStyle.lineHeight,
-      letterSpacing: textStyle.letterSpacing,
-    }));
-  }
-  
-  /**
-   * Extract components from context
-   * @param context Model Context
-   * @returns Extracted components
-   */
-  private extractComponents(context: ModelContext): any[] {
-    // Extract components from extensions
-    const componentLibrary = context.extensions?.componentLibrary as any;
-    
-    if (componentLibrary && componentLibrary.components) {
-      return componentLibrary.components.map((component: any) => ({
-        name: component.name,
-        description: component.description,
-        thumbnail: component.thumbnailUrl,
-      }));
-    }
-    
-    // If no component library, extract from elements
-    return context.design.elements
-      .filter(element => element.type === "COMPONENT")
-      .map(component => ({
-        name: component.name,
-        id: component.id,
-      }));
-  }
-  
-  /**
-   * Inject Model Context into a prompt for Cline
-   * @param context Model Context
-   * @param prompt Original prompt
-   * @returns Enhanced prompt with context
-   */
-  injectContext(context: ModelContext, prompt: string): string {
-    const formattedContext = this.formatContext(context);
-    
-    return `
-<design-context>
-${formattedContext}
-</design-context>
+    );
 
-User request: ${prompt}
-`;
+    // ノード情報取得ツール
+    this.server.tool(
+      "get-figma-node-info",
+      { fileKey: "string", nodeId: "string" },
+      async (params) => {
+        const fileKey = params.fileKey as string;
+        const nodeId = params.nodeId as string;
+        
+        try {
+          const node = await this.fileClient.getNode(fileKey, nodeId);
+          if (!node) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `ノードID ${nodeId} が見つかりませんでした。`
+                }
+              ]
+            };
+          }
+          
+          const content = this.resourceProvider.convertNodeToContent(node, fileKey, nodeId);
+          return { content: [content] };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `エラーが発生しました: ${error instanceof Error ? error.message : String(error)}`
+              }
+            ]
+          };
+        }
+      }
+    );
+  }
+
+  /**
+   * サーバーを取得
+   * @returns MCPサーバー
+   */
+  getServer(): McpServer {
+    return this.server;
   }
 }
 
 /**
- * Factory for creating AI model integrations
+ * RooCode統合インターフェース
  */
-export class AIModelIntegrationFactory {
+export class RooCodeIntegration {
+  private figmaMcpServer: FigmaMcpServer;
+  
   /**
-   * Create an AI model integration
-   * @param modelType Model type
-   * @returns AI model integration
+   * RooCode統合を初期化
+   * @param authConfig Figma認証設定
    */
-  static createIntegration(modelType: "roocode" | "cline"): AIModelIntegration {
-    switch (modelType.toLowerCase()) {
-      case "roocode":
-        return new RooCodeIntegration();
-      case "cline":
-        return new ClineIntegration();
-      default:
-        throw new Error(`Unsupported model type: ${modelType}`);
-    }
+  constructor(authConfig: FigmaAuthConfig) {
+    this.figmaMcpServer = new FigmaMcpServer(
+      authConfig,
+      "Figma RooCode Integration",
+      "1.0.0"
+    );
+  }
+  
+  /**
+   * Figma MCPサーバーを取得
+   * @returns Figma MCPサーバー
+   */
+  getFigmaMcpServer(): FigmaMcpServer {
+    return this.figmaMcpServer;
+  }
+  
+  /**
+   * MCPサーバーを取得
+   * @returns MCPサーバー
+   */
+  getMcpServer(): McpServer {
+    return this.figmaMcpServer.getServer();
+  }
+}
+
+/**
+ * Cline統合インターフェース
+ */
+export class ClineIntegration {
+  private figmaMcpServer: FigmaMcpServer;
+  
+  /**
+   * Cline統合を初期化
+   * @param authConfig Figma認証設定
+   */
+  constructor(authConfig: FigmaAuthConfig) {
+    this.figmaMcpServer = new FigmaMcpServer(
+      authConfig,
+      "Figma Cline Integration",
+      "1.0.0"
+    );
+  }
+  
+  /**
+   * Figma MCPサーバーを取得
+   * @returns Figma MCPサーバー
+   */
+  getFigmaMcpServer(): FigmaMcpServer {
+    return this.figmaMcpServer;
+  }
+  
+  /**
+   * MCPサーバーを取得
+   * @returns MCPサーバー
+   */
+  getMcpServer(): McpServer {
+    return this.figmaMcpServer.getServer();
   }
 }

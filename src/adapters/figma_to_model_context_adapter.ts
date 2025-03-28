@@ -1,637 +1,346 @@
 /**
- * Figma to Model Context Adapter
+ * Figma to Model Context アダプター
  * 
- * Converts Figma API data to Model Context Protocol format.
+ * FigmaデータをModel Context Protocol形式に変換するアダプター
  */
 
-import { FigmaClient } from "../api/figma_client.ts";
-import { FigmaFileAPI } from "../api/figma_file_api.ts";
-import { FigmaComponentsAPI } from "../api/figma_components_api.ts";
-import { FigmaVariablesAPI } from "../api/figma_variables_api.ts";
-import {
-  ModelContext,
-  ModelContextProtocol,
-  DesignElement,
-  HierarchyNode,
-  ElementType,
-  Fill,
-  Stroke,
-  Effect,
-  TextStyle,
-  ColorStyle,
-  EffectStyle,
-  VariableCollection,
-  Variable,
-} from "../model/model_context_protocol.ts";
+import { 
+  FigmaFile, 
+  FigmaNode, 
+  FigmaComponent, 
+  FigmaComponentSet,
+  FigmaStyle,
+  FigmaComment
+} from "../api/types.ts";
+import { McpResource, McpContent, McpResourceTemplate } from "../model/model_context_protocol.ts";
 
 /**
- * Adapter for converting Figma API data to Model Context Protocol
+ * Figmaデータ変換アダプター
  */
 export class FigmaToModelContextAdapter {
-  private client: FigmaClient;
-  private fileApi: FigmaFileAPI;
-  private componentsApi: FigmaComponentsAPI;
-  private variablesApi: FigmaVariablesAPI;
-  
   /**
-   * Creates a new Figma to Model Context adapter
-   * @param client Figma API client
+   * Figmaファイルをリソースに変換
+   * @param file Figmaファイル
+   * @param fileKey ファイルキー
+   * @returns MCPリソース
    */
-  constructor(client: FigmaClient) {
-    this.client = client;
-    this.fileApi = new FigmaFileAPI(client);
-    this.componentsApi = new FigmaComponentsAPI(client);
-    this.variablesApi = new FigmaVariablesAPI(client);
-  }
-  
-  /**
-   * Convert a Figma file to Model Context
-   * @param fileKey Figma file key
-   * @param options Conversion options
-   * @returns Model Context
-   */
-  async convertFileToModelContext(
-    fileKey: string,
-    options: {
-      includeStyles?: boolean;
-      includeVariables?: boolean;
-      includeImages?: boolean;
-      teamId?: string; // Required for component library access
-    } = {}
-  ): Promise<ModelContext> {
-    // Get file data
-    const figmaFile = await this.fileApi.getFile(fileKey);
-    
-    // Create empty context
-    const context = ModelContextProtocol.createEmptyContext({
-      type: "figma",
-      fileKey,
-      fileName: figmaFile.name,
-      lastModified: figmaFile.lastModified,
-      url: `https://www.figma.com/file/${fileKey}`,
-    });
-    
-    // Process document structure
-    this.processDocumentStructure(context, figmaFile.document);
-    
-    // Process styles if requested
-    if (options.includeStyles) {
-      this.processStyles(context, figmaFile.styles);
-    }
-    
-    // Process variables if requested
-    if (options.includeVariables) {
-      await this.processVariables(context, fileKey);
-    }
-    
-    // Process images if requested
-    if (options.includeImages) {
-      await this.processImages(context, fileKey);
-    }
-    
-    // Process component library if team ID is provided
-    if (options.teamId) {
-      await this.processComponentLibrary(context, options.teamId);
-    }
-    
-    return context;
-  }
-  
-  /**
-   * Process document structure
-   * @param context Model Context to update
-   * @param document Figma document
-   */
-  private processDocumentStructure(context: ModelContext, document: any): void {
-    // Set root node
-    context.design.structure.root = document.id;
-    
-    // Process nodes recursively
-    const hierarchy: HierarchyNode[] = [];
-    const elements: DesignElement[] = [];
-    
-    this.processNode(document, null, hierarchy, elements);
-    
-    // Update context
-    context.design.structure.hierarchy = hierarchy;
-    context.design.elements = elements;
-  }
-  
-  /**
-   * Process a node recursively
-   * @param node Figma node
-   * @param parentId Parent node ID or null for root
-   * @param hierarchy Hierarchy array to update
-   * @param elements Elements array to update
-   */
-  private processNode(node: any, parentId: string | null, hierarchy: HierarchyNode[], elements: DesignElement[]): void {
-    // Create hierarchy node
-    const hierarchyNode: HierarchyNode = {
-      id: node.id,
-      name: node.name,
-      type: this.mapNodeType(node.type),
+  convertFileToResource(file: FigmaFile, fileKey: string): McpResource {
+    return {
+      uri: `figma://file/${fileKey}`,
+      text: this.formatFileContent(file),
+      metadata: {
+        name: file.name,
+        lastModified: file.lastModified,
+        version: file.version,
+        schemaVersion: file.schemaVersion
+      }
     };
+  }
+
+  /**
+   * Figmaノードをリソースに変換
+   * @param node Figmaノード
+   * @param fileKey ファイルキー
+   * @param nodeId ノードID
+   * @returns MCPリソース
+   */
+  convertNodeToResource(node: FigmaNode, fileKey: string, nodeId: string): McpResource {
+    return {
+      uri: `figma://file/${fileKey}/node/${nodeId}`,
+      text: this.formatNodeContent(node),
+      metadata: {
+        name: node.name,
+        type: node.type,
+        id: node.id
+      }
+    };
+  }
+
+  /**
+   * Figmaコンポーネントをリソースに変換
+   * @param component Figmaコンポーネント
+   * @returns MCPリソース
+   */
+  convertComponentToResource(component: FigmaComponent): McpResource {
+    return {
+      uri: `figma://component/${component.key}`,
+      text: this.formatComponentContent(component),
+      metadata: {
+        name: component.name,
+        key: component.key,
+        description: component.description
+      }
+    };
+  }
+
+  /**
+   * Figmaスタイルをリソースに変換
+   * @param style Figmaスタイル
+   * @returns MCPリソース
+   */
+  convertStyleToResource(style: FigmaStyle): McpResource {
+    return {
+      uri: `figma://style/${style.key}`,
+      text: this.formatStyleContent(style),
+      metadata: {
+        name: style.name,
+        key: style.key,
+        styleType: style.styleType
+      }
+    };
+  }
+
+  /**
+   * Figmaコメントをリソースに変換
+   * @param comment Figmaコメント
+   * @param fileKey ファイルキー
+   * @returns MCPリソース
+   */
+  convertCommentToResource(comment: FigmaComment, fileKey: string): McpResource {
+    return {
+      uri: `figma://file/${fileKey}/comment/${comment.id}`,
+      text: this.formatCommentContent(comment),
+      metadata: {
+        id: comment.id,
+        user: comment.user.handle,
+        created_at: comment.created_at,
+        resolved_at: comment.resolved_at
+      }
+    };
+  }
+
+  /**
+   * Figmaファイルの内容をテキスト形式にフォーマット
+   * @param file Figmaファイル
+   * @returns フォーマットされたテキスト
+   */
+  private formatFileContent(file: FigmaFile): string {
+    let content = `# ${file.name}\n\n`;
+    content += `Last Modified: ${file.lastModified}\n`;
+    content += `Version: ${file.version}\n\n`;
     
-    if (parentId) {
-      hierarchyNode.parent = parentId;
+    if (file.document) {
+      content += `## Document Structure\n\n`;
+      content += this.formatNodeHierarchy(file.document, 0);
     }
     
-    if (node.children && node.children.length > 0) {
-      hierarchyNode.children = node.children.map((child: any) => child.id);
+    const componentCount = Object.keys(file.components || {}).length;
+    const styleCount = Object.keys(file.styles || {}).length;
+    
+    content += `\n## Summary\n\n`;
+    content += `- Components: ${componentCount}\n`;
+    content += `- Styles: ${styleCount}\n`;
+    
+    return content;
+  }
+
+  /**
+   * Figmaノード階層をテキスト形式にフォーマット
+   * @param node Figmaノード
+   * @param depth 階層の深さ
+   * @returns フォーマットされたテキスト
+   */
+  private formatNodeHierarchy(node: FigmaNode, depth: number): string {
+    const indent = '  '.repeat(depth);
+    let content = `${indent}- ${node.name} (${node.type})`;
+    
+    if (!node.visible) {
+      content += ' [hidden]';
     }
     
-    hierarchy.push(hierarchyNode);
+    content += '\n';
     
-    // Create design element
-    const element = this.createDesignElement(node);
-    elements.push(element);
-    
-    // Process children recursively
     if (node.children && node.children.length > 0) {
       for (const child of node.children) {
-        this.processNode(child, node.id, hierarchy, elements);
+        content += this.formatNodeHierarchy(child, depth + 1);
       }
     }
+    
+    return content;
+  }
+
+  /**
+   * Figmaノードの内容をテキスト形式にフォーマット
+   * @param node Figmaノード
+   * @returns フォーマットされたテキスト
+   */
+  private formatNodeContent(node: FigmaNode): string {
+    let content = `# ${node.name}\n\n`;
+    content += `Type: ${node.type}\n`;
+    content += `ID: ${node.id}\n`;
+    
+    if (node.visible !== undefined) {
+      content += `Visible: ${node.visible ? 'Yes' : 'No'}\n`;
+    }
+    
+    if (node.children && node.children.length > 0) {
+      content += `\n## Children\n\n`;
+      for (const child of node.children) {
+        content += `- ${child.name} (${child.type})\n`;
+      }
+    }
+    
+    return content;
+  }
+
+  /**
+   * Figmaコンポーネントの内容をテキスト形式にフォーマット
+   * @param component Figmaコンポーネント
+   * @returns フォーマットされたテキスト
+   */
+  private formatComponentContent(component: FigmaComponent): string {
+    let content = `# Component: ${component.name}\n\n`;
+    
+    if (component.description) {
+      content += `${component.description}\n\n`;
+    }
+    
+    content += `Key: ${component.key}\n`;
+    
+    if (component.componentSetId) {
+      content += `Component Set: ${component.componentSetId}\n`;
+    }
+    
+    if (component.documentationLinks && component.documentationLinks.length > 0) {
+      content += `\n## Documentation Links\n\n`;
+      for (const link of component.documentationLinks) {
+        content += `- ${link}\n`;
+      }
+    }
+    
+    return content;
+  }
+
+  /**
+   * Figmaスタイルの内容をテキスト形式にフォーマット
+   * @param style Figmaスタイル
+   * @returns フォーマットされたテキスト
+   */
+  private formatStyleContent(style: FigmaStyle): string {
+    let content = `# Style: ${style.name}\n\n`;
+    
+    if (style.description) {
+      content += `${style.description}\n\n`;
+    }
+    
+    content += `Key: ${style.key}\n`;
+    content += `Type: ${style.styleType}\n`;
+    
+    return content;
+  }
+
+  /**
+   * Figmaコメントの内容をテキスト形式にフォーマット
+   * @param comment Figmaコメント
+   * @returns フォーマットされたテキスト
+   */
+  private formatCommentContent(comment: FigmaComment): string {
+    let content = `# Comment by ${comment.user.handle}\n\n`;
+    content += `${comment.message}\n\n`;
+    content += `Posted: ${comment.created_at}\n`;
+    
+    if (comment.resolved_at) {
+      content += `Resolved: ${comment.resolved_at}\n`;
+    }
+    
+    if (comment.parent_id) {
+      content += `Reply to: ${comment.parent_id}\n`;
+    }
+    
+    if (comment.client_meta && comment.client_meta.node_id) {
+      content += `Node: ${comment.client_meta.node_id}\n`;
+      
+      if (comment.client_meta.node_offset) {
+        content += `Position: (${comment.client_meta.node_offset.x}, ${comment.client_meta.node_offset.y})\n`;
+      }
+    }
+    
+    return content;
+  }
+}
+
+/**
+ * Figma Model Context リソースプロバイダー
+ */
+export class FigmaModelContextResourceProvider {
+  private adapter: FigmaToModelContextAdapter;
+  
+  constructor() {
+    this.adapter = new FigmaToModelContextAdapter();
   }
   
   /**
-   * Create a design element from a Figma node
-   * @param node Figma node
-   * @returns Design element
+   * ファイルリソーステンプレートを取得
+   * @returns リソーステンプレート
    */
-  private createDesignElement(node: any): DesignElement {
-    const element: DesignElement = {
-      id: node.id,
-      name: node.name,
-      type: this.mapNodeType(node.type),
-      visible: node.visible !== false, // Default to true if not specified
-      locked: node.locked === true, // Default to false if not specified
+  getFileResourceTemplate(): McpResourceTemplate {
+    return new McpResourceTemplate("figma://file/{fileKey}", { list: false });
+  }
+  
+  /**
+   * ノードリソーステンプレートを取得
+   * @returns リソーステンプレート
+   */
+  getNodeResourceTemplate(): McpResourceTemplate {
+    return new McpResourceTemplate("figma://file/{fileKey}/node/{nodeId}", { list: false });
+  }
+  
+  /**
+   * コンポーネントリソーステンプレートを取得
+   * @returns リソーステンプレート
+   */
+  getComponentResourceTemplate(): McpResourceTemplate {
+    return new McpResourceTemplate("figma://component/{componentKey}", { list: false });
+  }
+  
+  /**
+   * スタイルリソーステンプレートを取得
+   * @returns リソーステンプレート
+   */
+  getStyleResourceTemplate(): McpResourceTemplate {
+    return new McpResourceTemplate("figma://style/{styleKey}", { list: false });
+  }
+  
+  /**
+   * コメントリソーステンプレートを取得
+   * @returns リソーステンプレート
+   */
+  getCommentResourceTemplate(): McpResourceTemplate {
+    return new McpResourceTemplate("figma://file/{fileKey}/comment/{commentId}", { list: false });
+  }
+  
+  /**
+   * Figmaファイルをコンテンツに変換
+   * @param file Figmaファイル
+   * @param fileKey ファイルキー
+   * @returns MCPコンテンツ
+   */
+  convertFileToContent(file: FigmaFile, fileKey: string): McpContent {
+    const resource = this.adapter.convertFileToResource(file, fileKey);
+    
+    return {
+      type: "text",
+      text: resource.text,
+      uri: resource.uri,
+      metadata: resource.metadata
     };
-    
-    // Add position if available
-    if (node.absoluteBoundingBox) {
-      element.position = {
-        x: node.absoluteBoundingBox.x,
-        y: node.absoluteBoundingBox.y,
-        width: node.absoluteBoundingBox.width,
-        height: node.absoluteBoundingBox.height,
-      };
-      
-      if (node.rotation) {
-        element.position.rotation = node.rotation;
-      }
-    }
-    
-    // Add style if available
-    if (node.fills || node.strokes || node.effects) {
-      element.style = {};
-      
-      if (node.fills && node.fills.length > 0) {
-        element.style.fills = this.mapFills(node.fills);
-      }
-      
-      if (node.strokes && node.strokes.length > 0) {
-        element.style.strokes = this.mapStrokes(node.strokes, node.strokeWeight);
-      }
-      
-      if (node.effects && node.effects.length > 0) {
-        element.style.effects = this.mapEffects(node.effects);
-      }
-      
-      if (node.opacity !== undefined) {
-        element.style.opacity = node.opacity;
-      }
-      
-      if (node.blendMode) {
-        element.style.blendMode = node.blendMode;
-      }
-    }
-    
-    // Add text if available
-    if (node.type === "TEXT" && node.characters) {
-      element.text = {
-        characters: node.characters,
-        style: this.mapTextStyle(node.style),
-      };
-    }
-    
-    // Add component properties if available
-    if (node.componentProperties) {
-      element.componentProperties = {};
-      
-      for (const [key, prop] of Object.entries(node.componentProperties)) {
-        element.componentProperties[key] = {
-          type: (prop as any).type,
-          value: (prop as any).value,
-          defaultValue: (prop as any).defaultValue,
-        };
-        
-        if ((prop as any).variantOptions) {
-          element.componentProperties[key].variantOptions = (prop as any).variantOptions;
-        }
-      }
-    }
-    
-    // Add constraints if available
-    if (node.constraints) {
-      element.constraints = {
-        horizontal: node.constraints.horizontal,
-        vertical: node.constraints.vertical,
-      };
-    }
-    
-    // Add layout properties if available
-    if (node.layoutMode) {
-      element.layoutProperties = {
-        layoutMode: node.layoutMode,
-      };
-      
-      if (node.paddingLeft !== undefined) element.layoutProperties.paddingLeft = node.paddingLeft;
-      if (node.paddingRight !== undefined) element.layoutProperties.paddingRight = node.paddingRight;
-      if (node.paddingTop !== undefined) element.layoutProperties.paddingTop = node.paddingTop;
-      if (node.paddingBottom !== undefined) element.layoutProperties.paddingBottom = node.paddingBottom;
-      if (node.itemSpacing !== undefined) element.layoutProperties.itemSpacing = node.itemSpacing;
-      if (node.counterAxisSizingMode !== undefined) element.layoutProperties.counterAxisSizingMode = node.counterAxisSizingMode;
-      if (node.primaryAxisSizingMode !== undefined) element.layoutProperties.primaryAxisSizingMode = node.primaryAxisSizingMode;
-      if (node.primaryAxisAlignItems !== undefined) element.layoutProperties.primaryAxisAlignItems = node.primaryAxisAlignItems;
-      if (node.counterAxisAlignItems !== undefined) element.layoutProperties.counterAxisAlignItems = node.counterAxisAlignItems;
-    }
-    
-    return element;
   }
   
   /**
-   * Map Figma node type to Model Context element type
-   * @param figmaType Figma node type
-   * @returns Model Context element type
+   * Figmaノードをコンテンツに変換
+   * @param node Figmaノード
+   * @param fileKey ファイルキー
+   * @param nodeId ノードID
+   * @returns MCPコンテンツ
    */
-  private mapNodeType(figmaType: string): ElementType {
-    switch (figmaType) {
-      case "DOCUMENT": return "DOCUMENT";
-      case "CANVAS": return "CANVAS";
-      case "FRAME": return "FRAME";
-      case "GROUP": return "GROUP";
-      case "COMPONENT": return "COMPONENT";
-      case "INSTANCE": return "INSTANCE";
-      case "TEXT": return "TEXT";
-      case "VECTOR": return "VECTOR";
-      case "RECTANGLE": return "RECTANGLE";
-      case "ELLIPSE": return "ELLIPSE";
-      case "POLYGON": return "POLYGON";
-      case "LINE": return "LINE";
-      case "BOOLEAN_OPERATION": return "BOOLEAN_OPERATION";
-      case "STAR": return "STAR";
-      case "SLICE": return "SLICE";
-      default: return "FRAME"; // Default to FRAME for unknown types
-    }
-  }
-  
-  /**
-   * Map Figma fills to Model Context fills
-   * @param figmaFills Figma fills
-   * @returns Model Context fills
-   */
-  private mapFills(figmaFills: any[]): Fill[] {
-    return figmaFills
-      .filter(fill => fill.visible !== false)
-      .map(fill => {
-        if (fill.type === "SOLID") {
-          return {
-            type: "SOLID",
-            color: {
-              r: fill.color.r,
-              g: fill.color.g,
-              b: fill.color.b,
-              a: fill.opacity || 1,
-            },
-            opacity: fill.opacity,
-          };
-        } else if (fill.type.startsWith("GRADIENT_")) {
-          return {
-            type: fill.type as "GRADIENT_LINEAR" | "GRADIENT_RADIAL" | "GRADIENT_ANGULAR" | "GRADIENT_DIAMOND",
-            gradientStops: fill.gradientStops.map((stop: any) => ({
-              position: stop.position,
-              color: {
-                r: stop.color.r,
-                g: stop.color.g,
-                b: stop.color.b,
-                a: stop.color.a || 1,
-              },
-            })),
-            gradientHandlePositions: fill.gradientHandlePositions,
-          };
-        } else if (fill.type === "IMAGE") {
-          return {
-            type: "IMAGE",
-            scaleMode: fill.scaleMode,
-            imageRef: fill.imageRef,
-            opacity: fill.opacity,
-          };
-        }
-        
-        // Default fallback
-        return {
-          type: "SOLID",
-          color: { r: 0, g: 0, b: 0, a: 1 },
-        };
-      });
-  }
-  
-  /**
-   * Map Figma strokes to Model Context strokes
-   * @param figmaStrokes Figma strokes
-   * @param strokeWeight Stroke weight
-   * @returns Model Context strokes
-   */
-  private mapStrokes(figmaStrokes: any[], strokeWeight: number): Stroke[] {
-    return figmaStrokes
-      .filter(stroke => stroke.visible !== false)
-      .map(stroke => {
-        const baseStroke: Stroke = {
-          type: stroke.type,
-          weight: strokeWeight,
-        };
-        
-        if (stroke.type === "SOLID") {
-          baseStroke.color = {
-            r: stroke.color.r,
-            g: stroke.color.g,
-            b: stroke.color.b,
-            a: stroke.opacity || 1,
-          };
-        } else if (stroke.type.startsWith("GRADIENT_")) {
-          baseStroke.gradientStops = stroke.gradientStops.map((stop: any) => ({
-            position: stop.position,
-            color: {
-              r: stop.color.r,
-              g: stop.color.g,
-              b: stop.color.b,
-              a: stop.color.a || 1,
-            },
-          }));
-        }
-        
-        if (stroke.opacity !== undefined) {
-          baseStroke.opacity = stroke.opacity;
-        }
-        
-        if (stroke.dashPattern) {
-          baseStroke.dashPattern = stroke.dashPattern;
-        }
-        
-        if (stroke.cap) {
-          baseStroke.cap = stroke.cap;
-        }
-        
-        if (stroke.join) {
-          baseStroke.join = stroke.join;
-        }
-        
-        if (stroke.miterLimit) {
-          baseStroke.miterLimit = stroke.miterLimit;
-        }
-        
-        return baseStroke;
-      });
-  }
-  
-  /**
-   * Map Figma effects to Model Context effects
-   * @param figmaEffects Figma effects
-   * @returns Model Context effects
-   */
-  private mapEffects(figmaEffects: any[]): Effect[] {
-    return figmaEffects
-      .filter(effect => effect.visible !== false)
-      .map(effect => {
-        const baseEffect: Effect = {
-          type: effect.type,
-          visible: effect.visible !== false,
-          radius: effect.radius,
-        };
-        
-        if (effect.color) {
-          baseEffect.color = {
-            r: effect.color.r,
-            g: effect.color.g,
-            b: effect.color.b,
-            a: effect.color.a || 1,
-          };
-        }
-        
-        if (effect.offset) {
-          baseEffect.offset = {
-            x: effect.offset.x,
-            y: effect.offset.y,
-          };
-        }
-        
-        if (effect.spread !== undefined) {
-          baseEffect.spread = effect.spread;
-        }
-        
-        return baseEffect;
-      });
-  }
-  
-  /**
-   * Map Figma text style to Model Context text style
-   * @param figmaStyle Figma text style
-   * @returns Model Context text style
-   */
-  private mapTextStyle(figmaStyle: any): TextStyle {
-    const textStyle: TextStyle = {
-      fontFamily: figmaStyle.fontFamily,
-      fontWeight: figmaStyle.fontWeight,
-      fontSize: figmaStyle.fontSize,
-      letterSpacing: figmaStyle.letterSpacing,
-      lineHeight: figmaStyle.lineHeight,
-      paragraphSpacing: figmaStyle.paragraphSpacing,
-      textCase: figmaStyle.textCase || "ORIGINAL",
-      textDecoration: figmaStyle.textDecoration || "NONE",
-      textAlignHorizontal: figmaStyle.textAlignHorizontal || "LEFT",
-      textAlignVertical: figmaStyle.textAlignVertical || "TOP",
-      fills: this.mapFills(figmaStyle.fills || []),
+  convertNodeToContent(node: FigmaNode, fileKey: string, nodeId: string): McpContent {
+    const resource = this.adapter.convertNodeToResource(node, fileKey, nodeId);
+    
+    return {
+      type: "text",
+      text: resource.text,
+      uri: resource.uri,
+      metadata: resource.metadata
     };
-    
-    return textStyle;
-  }
-  
-  /**
-   * Process styles from Figma file
-   * @param context Model Context to update
-   * @param styles Figma styles
-   */
-  private processStyles(context: ModelContext, styles: Record<string, any>): void {
-    for (const [id, style] of Object.entries(styles)) {
-      const styleType = style.styleType;
-      
-      if (styleType === "FILL") {
-        const colorStyle: ColorStyle = {
-          id,
-          name: style.name,
-          description: style.description,
-          fill: this.mapFills([style.style])[0],
-        };
-        
-        context.design.styles.colors.push(colorStyle);
-      } else if (styleType === "TEXT") {
-        const textStyle: TextStyle = {
-          id,
-          name: style.name,
-          description: style.description,
-          ...this.mapTextStyle(style.style),
-        };
-        
-        context.design.styles.text.push(textStyle);
-      } else if (styleType === "EFFECT") {
-        const effectStyle: EffectStyle = {
-          id,
-          name: style.name,
-          description: style.description,
-          effects: this.mapEffects(style.style.effects || []),
-        };
-        
-        context.design.styles.effects.push(effectStyle);
-      }
-      // Grid styles are not directly accessible from the file response
-    }
-  }
-  
-  /**
-   * Process variables from Figma file
-   * @param context Model Context to update
-   * @param fileKey Figma file key
-   */
-  private async processVariables(context: ModelContext, fileKey: string): Promise<void> {
-    try {
-      const variablesResponse = await this.variablesApi.getVariables(fileKey);
-      
-      if (variablesResponse.error) {
-        console.warn("Failed to get variables:", variablesResponse.status);
-        return;
-      }
-      
-      const collections: VariableCollection[] = variablesResponse.meta.variables.collections.map(collection => ({
-        id: collection.id,
-        name: collection.name,
-        key: collection.key,
-        modes: collection.modes,
-        defaultModeId: collection.defaultModeId,
-      }));
-      
-      const variables: Variable[] = variablesResponse.meta.variables.variables.map(variable => ({
-        id: variable.id,
-        name: variable.name,
-        key: variable.key,
-        variableCollectionId: variable.variableCollectionId,
-        resolvedType: variable.resolvedType,
-        valuesByMode: variable.valuesByMode,
-        description: variable.description,
-        scopes: variable.scopes,
-      }));
-      
-      context.design.variables = {
-        collections,
-        variables,
-      };
-    } catch (error) {
-      console.warn("Error processing variables:", error);
-    }
-  }
-  
-  /**
-   * Process images from Figma file
-   * @param context Model Context to update
-   * @param fileKey Figma file key
-   */
-  private async processImages(context: ModelContext, fileKey: string): Promise<void> {
-    try {
-      // Get image fills
-      const imageFills = await this.fileApi.getImageFills(fileKey);
-      
-      if (imageFills.err) {
-        console.warn("Failed to get image fills:", imageFills.err);
-        return;
-      }
-      
-      // Find elements with image fills
-      const elementsWithImages = context.design.elements.filter(element => 
-        element.style?.fills?.some(fill => fill.type === "IMAGE")
-      );
-      
-      // Create asset references
-      const images = [];
-      
-      for (const element of elementsWithImages) {
-        const imageFills = element.style!.fills!.filter(fill => fill.type === "IMAGE") as any[];
-        
-        for (const fill of imageFills) {
-          const imageRef = fill.imageRef;
-          const imageUrl = imageFills.images[imageRef];
-          
-          if (imageUrl) {
-            images.push({
-              id: imageRef,
-              name: `Image from ${element.name}`,
-              url: imageUrl,
-              format: imageUrl.split('.').pop() || "png",
-              dimensions: {
-                width: element.position?.width || 0,
-                height: element.position?.height || 0,
-              },
-              elementIds: [element.id],
-            });
-          }
-        }
-      }
-      
-      if (images.length > 0) {
-        if (!context.assets) {
-          context.assets = {
-            images,
-            icons: [],
-            fonts: [],
-          };
-        } else {
-          context.assets.images = images;
-        }
-      }
-    } catch (error) {
-      console.warn("Error processing images:", error);
-    }
-  }
-  
-  /**
-   * Process component library
-   * @param context Model Context to update
-   * @param teamId Figma team ID
-   */
-  private async processComponentLibrary(context: ModelContext, teamId: string): Promise<void> {
-    try {
-      // Get team components
-      const components = await this.componentsApi.getTeamComponents(teamId);
-      
-      if (components.error) {
-        console.warn("Failed to get team components:", components.status);
-        return;
-      }
-      
-      // Add component information to extensions
-      ModelContextProtocol.addExtension(context, "componentLibrary", {
-        teamId,
-        components: components.meta.components.map(component => ({
-          key: component.key,
-          name: component.name,
-          description: component.description,
-          thumbnailUrl: component.thumbnail_url,
-          fileKey: component.file_key,
-          nodeId: component.node_id,
-          componentSetId: component.component_set_id,
-        })),
-      });
-    } catch (error) {
-      console.warn("Error processing component library:", error);
-    }
   }
 }

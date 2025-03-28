@@ -1,201 +1,104 @@
 /**
- * Figma File API
+ * Figma ファイルアクセスAPI
  * 
- * Implementation of Figma API endpoints for accessing file data.
+ * Figmaファイル、ノード、画像へのアクセスを提供するメソッド
  */
 
 import { FigmaClient } from "./figma_client.ts";
-
-// Type definitions for Figma API responses
-export interface FigmaFile {
-  document: Document;
-  components: Record<string, Component>;
-  schemaVersion: number;
-  styles: Record<string, Style>;
-  name: string;
-  lastModified: string;
-  thumbnailUrl: string;
-  version: string;
-  role: string;
-  editorType: string;
-  linkAccess: string;
-}
-
-export interface Document {
-  id: string;
-  name: string;
-  type: string;
-  children: Node[];
-}
-
-export interface Node {
-  id: string;
-  name: string;
-  type: string;
-  [key: string]: unknown;
-}
-
-export interface Component {
-  key: string;
-  name: string;
-  description: string;
-  componentSetId?: string;
-  documentationLinks?: string[];
-}
-
-export interface Style {
-  key: string;
-  name: string;
-  description: string;
-  styleType: string;
-}
-
-export interface GetFileNodesResponse {
-  name: string;
-  lastModified: string;
-  thumbnailUrl: string;
-  err?: string;
-  nodes: Record<string, {
-    document: Node;
-    components: Record<string, Component>;
-    schemaVersion: number;
-    styles: Record<string, Style>;
-  }>;
-}
-
-export interface GetImageResponse {
-  err?: string;
-  images: Record<string, string>;
-  status?: number;
-}
-
-export interface GetImageFillsResponse {
-  err?: string;
-  images: Record<string, string>;
-  meta?: {
-    images: Record<string, {
-      url: string;
-    }>;
-  };
-}
+import { 
+  FigmaFile, 
+  FigmaFileParams, 
+  FigmaImageParams, 
+  FigmaImageResponse,
+  FigmaNode
+} from "./types.ts";
 
 /**
- * Figma File API client extension
+ * Figmaファイルアクセスクライアント
  */
-export class FigmaFileAPI {
-  private client: FigmaClient;
-
+export class FigmaFileClient extends FigmaClient {
   /**
-   * Creates a new Figma File API client
-   * @param client Base Figma API client
+   * Figmaファイルを取得
+   * @param params ファイル取得パラメータ
+   * @returns Figmaファイル
    */
-  constructor(client: FigmaClient) {
-    this.client = client;
+  async getFile(params: FigmaFileParams): Promise<FigmaFile> {
+    const { key, ...queryParams } = params;
+    return await this.request<FigmaFile>(`/files/${key}`, "GET", queryParams);
   }
 
   /**
-   * Get a Figma file by key
-   * @param fileKey The file key (can be extracted from Figma file URL)
-   * @param version Optional version ID to retrieve
-   * @returns The Figma file data
+   * Figmaファイルの特定ノードを取得
+   * @param params ファイル取得パラメータ（idsは必須）
+   * @returns 指定されたノードを含むFigmaファイル
    */
-  async getFile(fileKey: string, version?: string): Promise<FigmaFile> {
-    const params: Record<string, string> = {};
-    if (version) {
-      params.version = version;
-    }
-    
-    return this.client.get<FigmaFile>(`/files/${fileKey}`, params);
+  async getFileNodes(params: FigmaFileParams & { ids: string[] }): Promise<FigmaFile> {
+    const { key, ...queryParams } = params;
+    return await this.request<FigmaFile>(`/files/${key}/nodes`, "GET", queryParams);
   }
 
   /**
-   * Get specific nodes from a Figma file
-   * @param fileKey The file key
-   * @param ids Array of node IDs to retrieve
-   * @param version Optional version ID
-   * @param depth Optional depth to traverse the node tree
-   * @returns The requested nodes
+   * Figmaファイルのコメントを取得
+   * @param fileKey ファイルキー
+   * @returns コメントリスト
    */
-  async getFileNodes(
-    fileKey: string, 
-    ids: string[], 
-    version?: string,
-    depth?: number
-  ): Promise<GetFileNodesResponse> {
-    const params: Record<string, string> = {
-      ids: ids.join(','),
-    };
-    
-    if (version) {
-      params.version = version;
-    }
-    
-    if (depth !== undefined) {
-      params.depth = depth.toString();
-    }
-    
-    return this.client.get<GetFileNodesResponse>(`/files/${fileKey}/nodes`, params);
+  async getFileComments(fileKey: string): Promise<any> {
+    return await this.request<any>(`/files/${fileKey}/comments`);
   }
 
   /**
-   * Get images for nodes in a Figma file
-   * @param fileKey The file key
-   * @param ids Array of node IDs to get images for
-   * @param scale Optional image scale (default: 1)
-   * @param format Optional image format (default: 'png')
-   * @param svgIncludeId Optional include ID in SVG (default: false)
-   * @param svgSimplifyStroke Optional simplify stroke in SVG (default: true)
-   * @param useAbsoluteBounds Optional use absolute bounds (default: false)
-   * @param version Optional version ID
-   * @returns URLs to the requested images
+   * Figmaファイルの画像を取得
+   * @param fileKey ファイルキー
+   * @param params 画像取得パラメータ
+   * @returns 画像URL
    */
-  async getImage(
-    fileKey: string,
-    ids: string[],
-    scale?: number,
-    format?: 'jpg' | 'png' | 'svg' | 'pdf',
-    svgIncludeId?: boolean,
-    svgSimplifyStroke?: boolean,
-    useAbsoluteBounds?: boolean,
-    version?: string
-  ): Promise<GetImageResponse> {
-    const params: Record<string, string> = {
-      ids: ids.join(','),
-    };
-    
-    if (scale !== undefined) {
-      params.scale = scale.toString();
-    }
-    
-    if (format) {
-      params.format = format;
-    }
-    
-    if (svgIncludeId !== undefined) {
-      params.svg_include_id = svgIncludeId.toString();
-    }
-    
-    if (svgSimplifyStroke !== undefined) {
-      params.svg_simplify_stroke = svgSimplifyStroke.toString();
-    }
-    
-    if (useAbsoluteBounds !== undefined) {
-      params.use_absolute_bounds = useAbsoluteBounds.toString();
-    }
-    
-    if (version) {
-      params.version = version;
-    }
-    
-    return this.client.get<GetImageResponse>(`/images/${fileKey}`, params);
+  async getImage(fileKey: string, params: FigmaImageParams): Promise<FigmaImageResponse> {
+    return await this.request<FigmaImageResponse>(`/images/${fileKey}`, "GET", params);
   }
 
   /**
-   * Get image fills for a Figma file
-   * @param fileKey The file key
-   * @returns URLs to the image fills
+   * Figmaファイルのサムネイルを取得
+   * @param fileKey ファイルキー
+   * @returns サムネイルURL
    */
-  async getImageFills(fileKey: string): Promise<GetImageFillsResponse> {
-    return this.client.get<GetImageFillsResponse>(`/files/${fileKey}/images`);
+  async getFileThumbnail(fileKey: string): Promise<FigmaImageResponse> {
+    return await this.request<FigmaImageResponse>(`/files/${fileKey}/thumbnails`);
+  }
+
+  /**
+   * Figmaファイル内のコンポーネントを検索
+   * @param fileKey ファイルキー
+   * @returns コンポーネントリスト
+   */
+  async findComponents(fileKey: string): Promise<any> {
+    const file = await this.getFile({ key: fileKey });
+    return file.components || {};
+  }
+
+  /**
+   * Figmaファイル内のスタイルを検索
+   * @param fileKey ファイルキー
+   * @returns スタイルリスト
+   */
+  async findStyles(fileKey: string): Promise<any> {
+    const file = await this.getFile({ key: fileKey });
+    return file.styles || {};
+  }
+
+  /**
+   * 指定されたノードIDのノードを取得
+   * @param fileKey ファイルキー
+   * @param nodeId ノードID
+   * @returns ノード
+   */
+  async getNode(fileKey: string, nodeId: string): Promise<FigmaNode | null> {
+    try {
+      const response = await this.getFileNodes({ key: fileKey, ids: [nodeId] });
+      const nodes = response.document?.children || [];
+      return nodes.find(node => node.id === nodeId) || null;
+    } catch (error) {
+      console.error(`Error getting node ${nodeId}:`, error);
+      return null;
+    }
   }
 }

@@ -1,152 +1,122 @@
 /**
- * Figma Comments API
+ * Figma コメントアクセスAPI
  * 
- * Implementation of Figma API endpoints for accessing and managing comments.
+ * Figmaファイルのコメント操作を提供するメソッド
  */
 
 import { FigmaClient } from "./figma_client.ts";
-
-// Type definitions for Figma API responses
-export interface User {
-  id: string;
-  handle: string;
-  img_url: string;
-  email?: string;
-}
-
-export interface ClientMeta {
-  node_id?: string;
-  node_offset?: {
-    x: number;
-    y: number;
-  };
-}
-
-export interface Reaction {
-  user: User;
-  emoji: string;
-  created_at: string;
-}
-
-export interface Comment {
-  id: string;
-  client_meta: ClientMeta;
-  message: string;
-  file_key: string;
-  parent_id?: string;
-  user: User;
-  created_at: string;
-  resolved_at?: string;
-  reactions?: Reaction[];
-  order_id?: number;
-}
-
-export interface GetCommentsResponse {
-  comments: Comment[];
-}
-
-export interface PostCommentRequest {
-  message: string;
-  client_meta?: ClientMeta;
-  comment_id?: string; // For replies
-}
+import { 
+  FigmaComment,
+  FigmaCommentsParams,
+  FigmaCommentsResponse,
+  FigmaCreateCommentParams
+} from "./types.ts";
 
 /**
- * Figma Comments API client extension
+ * Figmaコメントアクセスクライアント
  */
-export class FigmaCommentsAPI {
-  private client: FigmaClient;
-
+export class FigmaCommentsClient extends FigmaClient {
   /**
-   * Creates a new Figma Comments API client
-   * @param client Base Figma API client
+   * ファイルのコメントを取得
+   * @param params コメント取得パラメータ
+   * @returns コメントリスト
    */
-  constructor(client: FigmaClient) {
-    this.client = client;
+  async getComments(params: FigmaCommentsParams): Promise<FigmaCommentsResponse> {
+    const { file_key } = params;
+    return await this.request<FigmaCommentsResponse>(`/files/${file_key}/comments`);
   }
 
   /**
-   * Get comments for a file
-   * @param fileKey The file key
-   * @returns Comments for the file
+   * 特定のコメントを取得
+   * @param params コメント取得パラメータ（comment_idは必須）
+   * @returns コメント
    */
-  async getComments(fileKey: string): Promise<GetCommentsResponse> {
-    return this.client.get<GetCommentsResponse>(`/files/${fileKey}/comments`);
+  async getComment(params: FigmaCommentsParams & { comment_id: string }): Promise<{ comment: FigmaComment }> {
+    const { file_key, comment_id } = params;
+    return await this.request<{ comment: FigmaComment }>(`/files/${file_key}/comments/${comment_id}`);
   }
 
   /**
-   * Post a comment to a file
-   * @param fileKey The file key
-   * @param comment Comment data to post
-   * @returns The created comment
+   * コメントを投稿
+   * @param params コメント作成パラメータ
+   * @returns 作成されたコメント
    */
-  async postComment(fileKey: string, comment: PostCommentRequest): Promise<Comment> {
-    return this.client.post<Comment>(`/files/${fileKey}/comments`, comment);
+  async postComment(params: FigmaCreateCommentParams): Promise<{ comment: FigmaComment }> {
+    const { file_key, ...commentData } = params;
+    return await this.request<{ comment: FigmaComment }>(
+      `/files/${file_key}/comments`,
+      "POST",
+      commentData
+    );
   }
 
   /**
-   * Post a reply to a comment
-   * @param fileKey The file key
-   * @param commentId The parent comment ID
-   * @param message The reply message
-   * @returns The created comment reply
+   * コメントに返信
+   * @param params コメント作成パラメータ（comment_idは必須）
+   * @returns 作成された返信コメント
    */
-  async postCommentReply(fileKey: string, commentId: string, message: string): Promise<Comment> {
-    return this.postComment(fileKey, {
-      message,
-      comment_id: commentId
-    });
+  async replyToComment(params: FigmaCreateCommentParams & { comment_id: string }): Promise<{ comment: FigmaComment }> {
+    return await this.postComment(params);
   }
 
   /**
-   * Delete a comment
-   * @param fileKey The file key
-   * @param commentId The comment ID to delete
-   * @returns Success status
+   * コメントを削除
+   * @param fileKey ファイルキー
+   * @param commentId コメントID
+   * @returns 削除結果
    */
   async deleteComment(fileKey: string, commentId: string): Promise<{ success: boolean }> {
-    return this.client.delete<{ success: boolean }>(`/files/${fileKey}/comments/${commentId}`);
+    return await this.request<{ success: boolean }>(
+      `/files/${fileKey}/comments/${commentId}`,
+      "DELETE"
+    );
   }
 
   /**
-   * Add a reaction to a comment
-   * @param fileKey The file key
-   * @param commentId The comment ID
-   * @param emoji The emoji to add as reaction
-   * @returns The updated comment
+   * コメントを解決済みとしてマーク
+   * @param fileKey ファイルキー
+   * @param commentId コメントID
+   * @returns 更新されたコメント
    */
-  async addReaction(fileKey: string, commentId: string, emoji: string): Promise<Comment> {
-    return this.client.post<Comment>(`/files/${fileKey}/comments/${commentId}/reactions`, { emoji });
+  async resolveComment(fileKey: string, commentId: string): Promise<{ comment: FigmaComment }> {
+    return await this.request<{ comment: FigmaComment }>(
+      `/files/${fileKey}/comments/${commentId}`,
+      "PATCH",
+      { resolved: true }
+    );
   }
 
   /**
-   * Remove a reaction from a comment
-   * @param fileKey The file key
-   * @param commentId The comment ID
-   * @param emoji The emoji to remove
-   * @returns Success status
+   * コメントを未解決としてマーク
+   * @param fileKey ファイルキー
+   * @param commentId コメントID
+   * @returns 更新されたコメント
    */
-  async removeReaction(fileKey: string, commentId: string, emoji: string): Promise<{ success: boolean }> {
-    return this.client.delete<{ success: boolean }>(`/files/${fileKey}/comments/${commentId}/reactions`, { emoji });
+  async unresolveComment(fileKey: string, commentId: string): Promise<{ comment: FigmaComment }> {
+    return await this.request<{ comment: FigmaComment }>(
+      `/files/${fileKey}/comments/${commentId}`,
+      "PATCH",
+      { resolved: false }
+    );
   }
 
   /**
-   * Resolve a comment
-   * @param fileKey The file key
-   * @param commentId The comment ID to resolve
-   * @returns The updated comment
+   * ファイルの解決済みコメントを取得
+   * @param fileKey ファイルキー
+   * @returns 解決済みコメントリスト
    */
-  async resolveComment(fileKey: string, commentId: string): Promise<Comment> {
-    return this.client.post<Comment>(`/files/${fileKey}/comments/${commentId}/resolve`);
+  async getResolvedComments(fileKey: string): Promise<FigmaComment[]> {
+    const response = await this.getComments({ file_key: fileKey });
+    return response.comments.filter(comment => comment.resolved_at !== undefined);
   }
 
   /**
-   * Unresolve a comment
-   * @param fileKey The file key
-   * @param commentId The comment ID to unresolve
-   * @returns The updated comment
+   * ファイルの未解決コメントを取得
+   * @param fileKey ファイルキー
+   * @returns 未解決コメントリスト
    */
-  async unresolveComment(fileKey: string, commentId: string): Promise<Comment> {
-    return this.client.post<Comment>(`/files/${fileKey}/comments/${commentId}/unresolve`);
+  async getUnresolvedComments(fileKey: string): Promise<FigmaComment[]> {
+    const response = await this.getComments({ file_key: fileKey });
+    return response.comments.filter(comment => comment.resolved_at === undefined);
   }
 }

@@ -1,142 +1,235 @@
 /**
- * Figma Authentication Module
+ * Figma 認証モジュール
  * 
- * Implementation of authentication methods for Figma API.
- * Supports both personal access tokens and OAuth2.
+ * Figma APIの認証機能を提供するモジュール
  */
 
-// Type definitions for authentication
-export interface OAuth2Config {
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
-  scope?: string[];
-}
+import { FigmaAuthConfig } from "../api/types.ts";
 
-export interface OAuth2TokenResponse {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  token_type: string;
+/**
+ * アクセストークン認証プロバイダー
+ */
+export class FigmaAccessTokenProvider {
+  private accessToken: string;
+  
+  /**
+   * アクセストークンプロバイダーを初期化
+   * @param accessToken Figma個人アクセストークン
+   */
+  constructor(accessToken: string) {
+    this.accessToken = accessToken;
+  }
+  
+  /**
+   * 認証設定を取得
+   * @returns Figma認証設定
+   */
+  getAuthConfig(): FigmaAuthConfig {
+    return {
+      accessToken: this.accessToken,
+    };
+  }
+  
+  /**
+   * アクセストークンを取得
+   * @returns アクセストークン
+   */
+  getAccessToken(): string {
+    return this.accessToken;
+  }
+  
+  /**
+   * アクセストークンを更新
+   * @param newToken 新しいアクセストークン
+   */
+  updateAccessToken(newToken: string): void {
+    this.accessToken = newToken;
+  }
 }
 
 /**
- * Class for handling Figma API authentication
+ * OAuth2認証プロバイダー
  */
-export class FigmaAuth {
-  private static readonly OAUTH_BASE_URL = "https://www.figma.com/oauth";
-  private static readonly DEFAULT_SCOPES = ["files:read"];
+export class FigmaOAuth2Provider {
+  private clientId: string;
+  private clientSecret: string;
+  private redirectUri: string;
+  private accessToken: string | null;
+  private refreshToken: string | null;
+  private expiresAt: number | null;
   
   /**
-   * Generate a personal access token URL
-   * @returns URL to generate a personal access token
+   * OAuth2プロバイダーを初期化
+   * @param clientId OAuth2クライアントID
+   * @param clientSecret OAuth2クライアントシークレット
+   * @param redirectUri リダイレクトURI
    */
-  static getPersonalAccessTokenUrl(): string {
-    return "https://www.figma.com/settings/user-profile/personal-access-tokens";
+  constructor(clientId: string, clientSecret: string, redirectUri: string) {
+    this.clientId = clientId;
+    this.clientSecret = clientSecret;
+    this.redirectUri = redirectUri;
+    this.accessToken = null;
+    this.refreshToken = null;
+    this.expiresAt = null;
   }
   
   /**
-   * Generate an OAuth2 authorization URL
-   * @param config OAuth2 configuration
-   * @returns Authorization URL to redirect the user to
+   * 認証URLを生成
+   * @param state 状態パラメータ
+   * @param scope スコープ（カンマ区切り）
+   * @returns 認証URL
    */
-  static getOAuth2AuthorizationUrl(config: OAuth2Config): string {
-    const scopes = config.scope || this.DEFAULT_SCOPES;
-    
+  getAuthorizationUrl(state: string, scope = "file_read"): string {
     const params = new URLSearchParams({
-      client_id: config.clientId,
-      redirect_uri: config.redirectUri,
-      scope: scopes.join(" "),
-      response_type: "code",
-      state: crypto.randomUUID(), // Generate a random state for CSRF protection
+      client_id: this.clientId,
+      redirect_uri: this.redirectUri,
+      scope,
+      state,
+      response_type: "code"
     });
     
-    return `${this.OAUTH_BASE_URL}?${params.toString()}`;
+    return `https://www.figma.com/oauth?${params.toString()}`;
   }
   
   /**
-   * Exchange an authorization code for an access token
-   * @param config OAuth2 configuration
-   * @param code Authorization code from the redirect
-   * @returns OAuth2 token response
+   * 認証コードからトークンを取得
+   * @param code 認証コード
+   * @returns トークン取得結果
    */
-  static async exchangeCodeForToken(
-    config: OAuth2Config,
-    code: string
-  ): Promise<OAuth2TokenResponse> {
-    const params = new URLSearchParams({
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
-      redirect_uri: config.redirectUri,
-      code,
-      grant_type: "authorization_code",
-    });
-    
-    const response = await fetch(`${this.OAUTH_BASE_URL}/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params.toString(),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
-      throw new Error(`OAuth2 token exchange error: ${errorData.message || "Unknown error"}`);
-    }
-    
-    return await response.json() as OAuth2TokenResponse;
-  }
-  
-  /**
-   * Refresh an OAuth2 access token
-   * @param config OAuth2 configuration
-   * @param refreshToken Refresh token
-   * @returns New OAuth2 token response
-   */
-  static async refreshToken(
-    config: OAuth2Config,
-    refreshToken: string
-  ): Promise<OAuth2TokenResponse> {
-    const params = new URLSearchParams({
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
-      refresh_token: refreshToken,
-      grant_type: "refresh_token",
-    });
-    
-    const response = await fetch(`${this.OAUTH_BASE_URL}/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params.toString(),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
-      throw new Error(`OAuth2 token refresh error: ${errorData.message || "Unknown error"}`);
-    }
-    
-    return await response.json() as OAuth2TokenResponse;
-  }
-  
-  /**
-   * Validate an access token by making a test API call
-   * @param accessToken Access token to validate
-   * @returns Whether the token is valid
-   */
-  static async validateToken(accessToken: string): Promise<boolean> {
+  async getTokenFromCode(code: string): Promise<boolean> {
     try {
-      const response = await fetch("https://api.figma.com/v1/me", {
+      const response = await fetch("https://www.figma.com/api/oauth/token", {
+        method: "POST",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
         },
+        body: JSON.stringify({
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          redirect_uri: this.redirectUri,
+          code,
+          grant_type: "authorization_code"
+        })
       });
       
-      return response.ok;
+      if (!response.ok) {
+        throw new Error(`Failed to get token: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      this.accessToken = data.access_token;
+      this.refreshToken = data.refresh_token;
+      this.expiresAt = Date.now() + (data.expires_in * 1000);
+      
+      return true;
     } catch (error) {
+      console.error("Error getting token:", error);
       return false;
     }
+  }
+  
+  /**
+   * リフレッシュトークンを使用してアクセストークンを更新
+   * @returns トークン更新結果
+   */
+  async refreshAccessToken(): Promise<boolean> {
+    if (!this.refreshToken) {
+      throw new Error("No refresh token available");
+    }
+    
+    try {
+      const response = await fetch("https://www.figma.com/api/oauth/refresh", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          refresh_token: this.refreshToken,
+          grant_type: "refresh_token"
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to refresh token: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      this.accessToken = data.access_token;
+      this.expiresAt = Date.now() + (data.expires_in * 1000);
+      
+      return true;
+    } catch (error) {
+      console.error("Error refreshing token:", error);
+      return false;
+    }
+  }
+  
+  /**
+   * 認証設定を取得
+   * @returns Figma認証設定
+   */
+  getAuthConfig(): FigmaAuthConfig {
+    if (!this.accessToken) {
+      throw new Error("No access token available");
+    }
+    
+    return {
+      accessToken: this.accessToken,
+    };
+  }
+  
+  /**
+   * アクセストークンを取得（必要に応じて更新）
+   * @returns アクセストークン
+   */
+  async getAccessToken(): Promise<string> {
+    if (!this.accessToken) {
+      throw new Error("No access token available");
+    }
+    
+    // トークンの有効期限が切れている場合は更新
+    if (this.expiresAt && Date.now() > this.expiresAt - 60000) {
+      const refreshed = await this.refreshAccessToken();
+      if (!refreshed) {
+        throw new Error("Failed to refresh access token");
+      }
+    }
+    
+    return this.accessToken;
+  }
+  
+  /**
+   * トークンが有効かどうかを確認
+   * @returns トークンが有効な場合はtrue
+   */
+  isTokenValid(): boolean {
+    return !!this.accessToken && !!this.expiresAt && Date.now() < this.expiresAt;
+  }
+}
+
+/**
+ * 認証プロバイダーファクトリ
+ */
+export class FigmaAuthProviderFactory {
+  /**
+   * アクセストークン認証プロバイダーを作成
+   * @param accessToken Figma個人アクセストークン
+   * @returns アクセストークン認証プロバイダー
+   */
+  static createAccessTokenProvider(accessToken: string): FigmaAccessTokenProvider {
+    return new FigmaAccessTokenProvider(accessToken);
+  }
+  
+  /**
+   * OAuth2認証プロバイダーを作成
+   * @param clientId OAuth2クライアントID
+   * @param clientSecret OAuth2クライアントシークレット
+   * @param redirectUri リダイレクトURI
+   * @returns OAuth2認証プロバイダー
+   */
+  static createOAuth2Provider(clientId: string, clientSecret: string, redirectUri: string): FigmaOAuth2Provider {
+    return new FigmaOAuth2Provider(clientId, clientSecret, redirectUri);
   }
 }
