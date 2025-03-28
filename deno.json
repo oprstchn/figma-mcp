@@ -6,7 +6,10 @@
   "scripts": {
     "test": "deno test --allow-net --allow-env --allow-read --allow-write tests/",
     "example:basic": "deno run --allow-net --allow-env --allow-read --allow-write examples/basic_usage.ts",
-    "example:ai": "deno run --allow-net --allow-env --allow-read --allow-write examples/ai_integration.ts"
+    "example:ai": "deno run --allow-net --allow-env --allow-read --allow-write examples/ai_integration.ts",
+    "start": "deno run --allow-net --allow-env --allow-read --allow-write server.ts",
+    "start:watch": "deno run --watch --allow-net --allow-env --allow-read --allow-write server.ts",
+    "dev": "deno run --watch --allow-net --allow-env --allow-read --allow-write server.ts"
   },
   "author": "",
   "license": "MIT"

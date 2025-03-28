@@ -15,7 +15,7 @@ Model Context Protocolは、FigmaのデザインデータをRooCodeやClineな�
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/yourusername/figma-model-context-protocol.git
+git clone https://github.com/oprstchn/figma-model-context-protocol.git
 cd figma-model-context-protocol
 
 # 依存関係をインストール（必要な場合）
@@ -23,6 +23,29 @@ deno cache --reload src/mod.ts
 ```
 
 ## 使用方法
+
+### サーバーの起動
+
+リポジトリのルートにある`server.ts`を使用して、Figma Model Context Protocolサーバーを起動できます。
+
+```bash
+# 環境変数を設定
+export FIGMA_ACCESS_TOKEN=your-figma-access-token
+
+# サーバーを起動
+deno task start
+
+# または開発モード（ファイル変更を監視）で起動
+deno task dev
+```
+
+サーバーは`http://localhost:3000/mcp`でアクセス可能になります。ポート番号は環境変数`PORT`で変更できます。
+
+```bash
+# カスタムポートでサーバーを起動
+export PORT=8080
+deno task start
+```
 
 ### 基本的な使用例
 
@@ -93,6 +116,29 @@ const prompt = "このデザインに基づいてReactコンポーネントを�
 const enhancedPrompt = clineIntegration.injectContext(modelContext, prompt);
 
 console.log(enhancedPrompt);
+```
+
+## 利用可能なスクリプト
+
+`deno.json`に定義されたスクリプトを使用して、さまざまな操作を実行できます：
+
+```bash
+# テストを実行
+deno task test
+
+# 基本的な使用例を実行
+deno task example:basic
+
+# AI統合の例を実行
+deno task example:ai
+
+# サーバーを起動
+deno task start
+
+# 開発モード（ファイル変更を監視）でサーバーを起動
+deno task dev
+# または
+deno task start:watch
 ```
 
 ## API リファレンス
@@ -342,14 +388,22 @@ figma-model-context-protocol/
 │   ├── adapters/
 │   │   ├── figma_to_model_context_adapter.ts # Figmaアダプター
 │   │   └── ai_model_integration.ts # AIモデル統合
+│   ├── transports/
+│   │   ├── stdio.ts                # 標準入出力トランスポート
+│   │   └── sse.ts                  # SSEトランスポート
+│   ├── utils/
+│   │   └── performance.ts          # パフォーマンス最適化
 │   └── mod.ts                      # メインモジュール
 ├── tests/
-│   └── figma_api_test.ts           # APIテスト
+│   └── integration_test.ts         # 統合テスト
 ├── examples/
 │   ├── basic_usage.ts              # 基本的な使用例
 │   └── ai_integration.ts           # AI統合の例
 ├── docs/
-│   └── model_context_protocol_design.md # プロトコル設計
+│   └── README.md                   # 詳細ドキュメント
+├── server.ts                       # MCPサーバー実装例
+├── deno.json                       # Denoプロジェクト設定
+├── mcp.md                          # MCP仕様まとめ
 └── figma.md                        # Figma API仕様
 ```
 
@@ -360,7 +414,3 @@ MITライセンス
 ## 貢献
 
 プルリクエストは歓迎します。大きな変更を行う場合は、まずissueを開いて変更内容を議論してください。
-
-## 作者
-
-あなたの名前
