@@ -87,11 +87,12 @@ export class FigmaFileClient extends Client {
 	 * @param fileKey ファイルキー
 	 * @returns サムネイルURL
 	 */
-	async getFileThumbnail(fileKey: string): Promise<FigmaImageResponse> {
-		return await this.request<FigmaImageResponse>(
-			`/files/${fileKey}/thumbnails`,
-		);
-	}
+	// このエンドポイントはFigma API仕様書に記載されていません
+	// async getFileThumbnail(fileKey: string): Promise<FigmaImageResponse> {
+	// 	return await this.request<FigmaImageResponse>(
+	// 		`/files/${fileKey}/thumbnails`,
+	// 	);
+	// }
 
 	/**
 	 * Figmaファイル内のコンポーネントを検索

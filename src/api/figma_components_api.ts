@@ -29,24 +29,26 @@ export class FigmaComponentsClient extends Client {
 	 * @param key コンポーネントキー
 	 * @returns コンポーネント詳細
 	 */
-	async getComponent(key: string): Promise<{ component: FigmaComponent }> {
-		return await this.request<{ component: FigmaComponent }>(
-			`/components/${key}`,
-		);
-	}
+	// このエンドポイントはFigma API仕様書に記載されていません
+	// async getComponent(key: string): Promise<{ component: FigmaComponent }> {
+	// 	return await this.request<{ component: FigmaComponent }>(
+	// 		`/components/${key}`,
+	// 	);
+	// }
 
 	/**
 	 * コンポーネントセットの詳細を取得
 	 * @param key コンポーネントセットキー
 	 * @returns コンポーネントセット詳細
 	 */
-	async getComponentSet(
-		key: string,
-	): Promise<{ component_set: FigmaComponentSet }> {
-		return await this.request<{ component_set: FigmaComponentSet }>(
-			`/component_sets/${key}`,
-		);
-	}
+	// このエンドポイントはFigma API仕様書に記載されていません
+	// async getComponentSet(
+	// 	key: string,
+	// ): Promise<{ component_set: FigmaComponentSet }> {
+	// 	return await this.request<{ component_set: FigmaComponentSet }>(
+	// 		`/component_sets/${key}`,
+	// 	);
+	// }
 
 	/**
 	 * チームのスタイルを取得
@@ -64,9 +66,10 @@ export class FigmaComponentsClient extends Client {
 	 * @param key スタイルキー
 	 * @returns スタイル詳細
 	 */
-	async getStyle(key: string): Promise<{ style: FigmaStyle }> {
-		return await this.request<{ style: FigmaStyle }>(`/styles/${key}`);
-	}
+	// このエンドポイントはFigma API仕様書に記載されていません
+	// async getStyle(key: string): Promise<{ style: FigmaStyle }> {
+	// 	return await this.request<{ style: FigmaStyle }>(`/styles/${key}`);
+	// }
 
 	/**
 	 * ファイル内のすべてのコンポーネントを取得
@@ -108,20 +111,21 @@ export class FigmaComponentsClient extends Client {
 	 * @param params 画像パラメータ
 	 * @returns 画像URL
 	 */
-	async getComponentImage(
-		key: string,
-		params: { format?: "jpg" | "png" | "svg"; scale?: number } = {},
-	): Promise<string | null> {
-		try {
-			const response = await this.request<any>(
-				`/images/components/${key}`,
-				"GET",
-				params,
-			);
-			return response.images?.[key] || null;
-		} catch (error) {
-			console.error(`Error getting component image for ${key}:`, error);
-			return null;
-		}
-	}
+	// このエンドポイントはFigma API仕様書に記載されていません
+	// async getComponentImage(
+	// 	key: string,
+	// 	params: { format?: "jpg" | "png" | "svg"; scale?: number } = {},
+	// ): Promise<string | null> {
+	// 	try {
+	// 		const response = await this.request<any>(
+	// 			`/images/components/${key}`,
+	// 			"GET",
+	// 			params,
+	// 		);
+	// 		return response.images?.[key] || null;
+	// 	} catch (error) {
+	// 		console.error(`Error getting component image for ${key}:`, error);
+	// 		return null;
+	// 	}
+	// }
 }
