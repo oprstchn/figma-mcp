@@ -1,0 +1,13 @@
+{
+  "name": "figma-model-context-protocol",
+  "version": "1.0.0",
+  "description": "Figmaデザインデータをモデルコンテキストとして提供するプロトコル",
+  "main": "./src/mod.ts",
+  "scripts": {
+    "test": "deno test --allow-net --allow-env --allow-read --allow-write tests/",
+    "example:basic": "deno run --allow-net --allow-env --allow-read --allow-write examples/basic_usage.ts",
+    "example:ai": "deno run --allow-net --allow-env --allow-read --allow-write examples/ai_integration.ts"
+  },
+  "author": "",
+  "license": "MIT"
+}
