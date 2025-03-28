@@ -4,7 +4,7 @@
  * Figma変数とコレクションへのアクセスを提供するメソッド
  */
 
-import { FigmaClient } from "./figma_client.ts";
+import { Client } from "./client.ts";
 import { 
   FigmaVariable,
   FigmaVariableCollection,
@@ -15,7 +15,7 @@ import {
 /**
  * Figma変数アクセスクライアント
  */
-export class FigmaVariablesClient extends FigmaClient {
+export class FigmaVariablesClient extends Client {
   /**
    * ファイルの変数とコレクションを取得
    * @param params 変数取得パラメータ

@@ -301,7 +301,12 @@ export class McpServer {
       if (extractedParams) {
         const handler = this.resources.get(name);
         if (handler) {
-          return await handler(uri, extractedParams);
+          try {
+            return await handler(uri, extractedParams);
+          } catch (error) {
+            console.error(`Error handling resource ${uriStr}:`, error);
+            throw new Error(`Error processing resource: ${error instanceof Error ? error.message : String(error)}`);
+          }
         }
       }
     }
@@ -357,7 +362,19 @@ export class McpServer {
       throw new Error(`Tool not found: ${toolName}`);
     }
     
-    return await tool(toolParams || {});
+    try {
+      return await tool(toolParams || {});
+    } catch (error) {
+      console.error(`Error calling tool ${toolName}:`, error);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error calling tool ${toolName}: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
   }
 
   // プロンプト一覧処理

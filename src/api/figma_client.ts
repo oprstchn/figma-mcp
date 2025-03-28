@@ -1,98 +1,244 @@
 /**
  * Figma API クライアント
- * 
- * Figma APIへのアクセスを提供する基本クライアント
+ *
+ * 全ての Figma API にアクセスするための統合クライアント
  */
 
-import { FigmaAuthConfig, FigmaResponse } from "./types.ts";
+import { FigmaAuthConfig, FigmaFile, FigmaFileParams, FigmaImageParams, FigmaImageResponse, FigmaNode } from "./types.ts";
+import { Client } from "./client.ts";
+import { FigmaCommentsClient } from "./figma_comments_api.ts";
+import { FigmaComponentsClient } from "./figma_components_api.ts";
+import { FigmaFileClient } from "./figma_file_api.ts";
+import { FigmaVariablesClient } from "./figma_variables_api.ts";
+import { FigmaWebhooksClient } from "./figma_webhooks_api.ts";
 
 /**
- * Figma APIクライアントのベースクラス
+ * Figma API への統合アクセスを提供するクライアント
  */
-export class FigmaClient {
-  private accessToken: string;
-  private apiBase: string;
+export class FigmaClient extends Client {
+  public readonly files: FigmaFileClient;
+  public readonly comments: FigmaCommentsClient;
+  public readonly components: FigmaComponentsClient;
+  public readonly variables: FigmaVariablesClient;
+  public readonly webhooks: FigmaWebhooksClient;
 
   /**
-   * Figma APIクライアントを初期化
+   * 統合 Figma API クライアントを初期化
    * @param config 認証設定
    */
   constructor(config: FigmaAuthConfig) {
-    this.accessToken = config.accessToken;
-    this.apiBase = config.apiBase || "https://api.figma.com/v1";
+    super(config);
+
+    // 各 API クライアントを初期化
+    this.files = new FigmaFileClient(config);
+    this.comments = new FigmaCommentsClient(config);
+    this.components = new FigmaComponentsClient(config);
+    this.variables = new FigmaVariablesClient(config);
+    this.webhooks = new FigmaWebhooksClient(config);
+  }
+
+  // File API メソッド
+  async getFile(params: FigmaFileParams): Promise<FigmaFile> {
+    return await this.files.getFile(params);
+  }
+
+  async getFileNodes(params: FigmaFileParams & { ids: string[] }): Promise<FigmaFile> {
+    return await this.files.getFileNodes(params);
+  }
+
+  async getFileComments(fileKey: string): Promise<any> {
+    return await this.files.getFileComments(fileKey);
+  }
+
+  async getImage(fileKey: string, params: FigmaImageParams): Promise<FigmaImageResponse> {
+    return await this.files.getImage(fileKey, params);
+  }
+
+  async getFileThumbnail(fileKey: string): Promise<FigmaImageResponse> {
+    return await this.files.getFileThumbnail(fileKey);
+  }
+
+  async findComponents(fileKey: string): Promise<any> {
+    return await this.files.findComponents(fileKey);
+  }
+
+  async findStyles(fileKey: string): Promise<any> {
+    return await this.files.findStyles(fileKey);
+  }
+
+  async getNode(fileKey: string, nodeId: string): Promise<FigmaNode | null> {
+    return await this.files.getNode(fileKey, nodeId);
+  }
+
+  // Comments API メソッド
+  async getComments(params: { file_key: string }): Promise<any> {
+    return await this.comments.getComments(params);
+  }
+
+  async getComment(params: { file_key: string; comment_id: string }): Promise<any> {
+    return await this.comments.getComment(params);
+  }
+
+  async postComment(params: { file_key: string; message: string; client_meta?: any }): Promise<any> {
+    return await this.comments.postComment(params);
+  }
+
+  async replyToComment(params: { file_key: string; message: string; comment_id: string; client_meta?: any }): Promise<any> {
+    return await this.comments.replyToComment(params);
+  }
+
+  async deleteComment(fileKey: string, commentId: string): Promise<{ success: boolean }> {
+    return await this.comments.deleteComment(fileKey, commentId);
+  }
+
+  async resolveComment(fileKey: string, commentId: string): Promise<any> {
+    return await this.comments.resolveComment(fileKey, commentId);
+  }
+
+  async unresolveComment(fileKey: string, commentId: string): Promise<any> {
+    return await this.comments.unresolveComment(fileKey, commentId);
+  }
+
+  async getResolvedComments(fileKey: string): Promise<any[]> {
+    return await this.comments.getResolvedComments(fileKey);
+  }
+
+  async getUnresolvedComments(fileKey: string): Promise<any[]> {
+    return await this.comments.getUnresolvedComments(fileKey);
+  }
+
+  // Components API メソッド
+  async getTeamComponents(teamId: string): Promise<any> {
+    return await this.components.getTeamComponents(teamId);
+  }
+
+  async getComponent(key: string): Promise<any> {
+    return await this.components.getComponent(key);
+  }
+
+  async getComponentSet(key: string): Promise<any> {
+    return await this.components.getComponentSet(key);
+  }
+
+  async getTeamStyles(teamId: string): Promise<any> {
+    return await this.components.getTeamStyles(teamId);
+  }
+
+  async getStyle(key: string): Promise<any> {
+    return await this.components.getStyle(key);
+  }
+
+  async getAllFileComponents(fileKey: string): Promise<any> {
+    return await this.components.getAllFileComponents(fileKey);
+  }
+
+  async getAllFileComponentSets(fileKey: string): Promise<any> {
+    return await this.components.getAllFileComponentSets(fileKey);
+  }
+
+  async getAllFileStyles(fileKey: string): Promise<any> {
+    return await this.components.getAllFileStyles(fileKey);
+  }
+
+  async getComponentImage(key: string, params?: { format?: "jpg" | "png" | "svg"; scale?: number }): Promise<string | null> {
+    return await this.components.getComponentImage(key, params);
+  }
+
+  // Variables API メソッド
+  async getVariables(params: { file_key: string }): Promise<any> {
+    return await this.variables.getVariables(params);
+  }
+
+  async getFileVariables(fileKey: string): Promise<any[]> {
+    return await this.variables.getFileVariables(fileKey);
+  }
+
+  async getFileVariableCollections(fileKey: string): Promise<any[]> {
+    return await this.variables.getFileVariableCollections(fileKey);
+  }
+
+  async getVariable(fileKey: string, variableId: string): Promise<any | null> {
+    return await this.variables.getVariable(fileKey, variableId);
+  }
+
+  async getVariableCollection(fileKey: string, collectionId: string): Promise<any | null> {
+    return await this.variables.getVariableCollection(fileKey, collectionId);
+  }
+
+  async getVariablesByCollection(fileKey: string, collectionId: string): Promise<any[]> {
+    return await this.variables.getVariablesByCollection(fileKey, collectionId);
+  }
+
+  async getVariablesByType(fileKey: string, type: string): Promise<any[]> {
+    return await this.variables.getVariablesByType(fileKey, type);
+  }
+
+  async getVariableValueForMode(fileKey: string, variableId: string, modeId: string): Promise<any | null> {
+    return await this.variables.getVariableValueForMode(fileKey, variableId, modeId);
+  }
+
+  // Webhooks API メソッド
+  async getTeamWebhooks(teamId: string): Promise<any> {
+    return await this.webhooks.getTeamWebhooks(teamId);
+  }
+
+  async createWebhook(params: { team_id: string; event_type: string; endpoint: string; passcode: string; description?: string }): Promise<any> {
+    return await this.webhooks.createWebhook(params);
+  }
+
+  async deleteWebhook(teamId: string, webhookId: string): Promise<{ success: boolean }> {
+    return await this.webhooks.deleteWebhook(teamId, webhookId);
+  }
+
+  async getWebhook(teamId: string, webhookId: string): Promise<any> {
+    return await this.webhooks.getWebhook(teamId, webhookId);
+  }
+
+  async getWebhooksByEventType(teamId: string, eventType: string): Promise<any[]> {
+    return await this.webhooks.getWebhooksByEventType(teamId, eventType);
+  }
+
+  async checkWebhookStatus(teamId: string, webhookId: string): Promise<string> {
+    return await this.webhooks.checkWebhookStatus(teamId, webhookId);
+  }
+
+  async findWebhooksByEndpoint(teamId: string, endpoint: string): Promise<any[]> {
+    return await this.webhooks.findWebhooksByEndpoint(teamId, endpoint);
   }
 
   /**
-   * Figma APIにリクエストを送信する
-   * @param endpoint APIエンドポイント
-   * @param method HTTPメソッド
-   * @param params リクエストパラメータ
-   * @returns APIレスポンス
+   * 統合クライアントのすべての機能を使用した例：ファイルとそのコメントを取得
+   * @param fileKey ファイルキー
+   * @returns ファイルとコメントの情報
    */
-  protected async request<T extends FigmaResponse>(
-    endpoint: string,
-    method: string = "GET",
-    params?: Record<string, unknown>
-  ): Promise<T> {
-    const url = new URL(`${this.apiBase}${endpoint}`);
-    
-    const headers = new Headers({
-      "Authorization": `Bearer ${this.accessToken}`,
-      "X-Figma-Token": this.accessToken,
-      "Content-Type": "application/json",
-    });
+  async getFileWithComments(fileKey: string) {
+    const [file, comments] = await Promise.all([
+      this.getFile({ file_key: fileKey }),
+      this.getComments({ file_key: fileKey })
+    ]);
 
-    const options: RequestInit = {
-      method,
-      headers,
+    return {
+      file,
+      comments: comments.comments
     };
-
-    // GETリクエストの場合はURLにクエリパラメータを追加
-    if (method === "GET" && params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
-          if (Array.isArray(value)) {
-            // 配列の場合はカンマ区切りの文字列に変換
-            url.searchParams.append(key, value.join(","));
-          } else {
-            url.searchParams.append(key, String(value));
-          }
-        }
-      });
-    } else if (params) {
-      // GET以外の場合はリクエストボディにJSONを設定
-      options.body = JSON.stringify(params);
-    }
-
-    try {
-      const response = await fetch(url.toString(), options);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `Figma API error: ${response.status} ${response.statusText} - ${errorData.message || "Unknown error"}`
-        );
-      }
-
-      return await response.json() as T;
-    } catch (error) {
-      console.error("Error calling Figma API:", error);
-      throw error;
-    }
   }
 
   /**
-   * APIクライアントが正しく設定されているか確認
-   * @returns 認証が有効な場合はtrue
+   * ファイルの変数とコンポーネントを一度に取得
+   * @param fileKey ファイルキー
+   * @returns 変数とコンポーネントの情報
    */
-  async validateAuth(): Promise<boolean> {
-    try {
-      // ユーザー情報を取得して認証をテスト
-      const response = await this.request("/me");
-      return !response.error;
-    } catch (error) {
-      console.error("Authentication validation failed:", error);
-      return false;
-    }
+  async getFileAssetsAndVariables(fileKey: string) {
+    const [variables, components, styles] = await Promise.all([
+      this.getFileVariables(fileKey),
+      this.getAllFileComponents(fileKey),
+      this.getAllFileStyles(fileKey)
+    ]);
+
+    return {
+      variables,
+      components,
+      styles
+    };
   }
 }

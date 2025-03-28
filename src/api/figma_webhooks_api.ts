@@ -4,7 +4,7 @@
  * Figma Webhookの作成、管理、削除を提供するメソッド
  */
 
-import { FigmaClient } from "./figma_client.ts";
+import { Client } from "./client.ts";
 import { 
   FigmaWebhook,
   FigmaWebhookParams,
@@ -14,7 +14,7 @@ import {
 /**
  * Figma Webhookアクセスクライアント
  */
-export class FigmaWebhooksClient extends FigmaClient {
+export class FigmaWebhooksClient extends Client {
   /**
    * チームのWebhookを取得
    * @param teamId チームID
