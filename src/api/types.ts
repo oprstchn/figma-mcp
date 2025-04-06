@@ -28,6 +28,23 @@ export interface FigmaFile extends FigmaResponse {
 	componentSets: { [key: string]: FigmaComponentSet };
 	schemaVersion: number;
 	styles: { [key: string]: FigmaStyle };
+	nodes?: { [key: string]: FigmaNode };
+}
+
+// /files/:key/nodes エンドポイントのレスポンス型
+export interface FigmaFileNodesResponse extends FigmaResponse {
+	name: string;
+	lastModified: string;
+	thumbnailUrl: string;
+	version: string;
+	nodes: {
+		[nodeId: string]: {
+			document: FigmaDocument;
+			components?: { [key: string]: FigmaComponent };
+			schemaVersion?: number;
+			styles?: { [key: string]: FigmaStyle };
+		};
+	};
 }
 
 export interface FigmaDocument {
@@ -61,6 +78,27 @@ export interface FigmaComponentSet {
 	documentationLinks?: string[];
 }
 
+// コンポーネントAPIレスポンス型
+export interface FigmaComponentsResponse extends FigmaResponse {
+	meta: {
+		components: FigmaComponent[];
+		cursor?: {
+			before: string;
+			after: string;
+		};
+	};
+}
+
+export interface FigmaComponentSetsResponse extends FigmaResponse {
+	meta: {
+		component_sets: FigmaComponentSet[];
+		cursor?: {
+			before: string;
+			after: string;
+		};
+	};
+}
+
 // スタイル関連の型
 export interface FigmaStyle {
 	key: string;
@@ -69,9 +107,31 @@ export interface FigmaStyle {
 	styleType: string;
 }
 
+// スタイルAPIレスポンス型
+export interface FigmaStylesResponse extends FigmaResponse {
+	meta: {
+		styles: FigmaStyle[];
+		cursor?: {
+			before: string;
+			after: string;
+		};
+	};
+}
+
 // 画像関連の型
 export interface FigmaImageResponse extends FigmaResponse {
 	images: { [key: string]: string };
+}
+
+export interface FigmaFileImagesResponse extends FigmaResponse {
+	images: { [key: string]: string };
+	meta?: {
+		images: {
+			[key: string]: {
+				url: string;
+			};
+		};
+	};
 }
 
 export interface FigmaImageParams {
@@ -81,6 +141,7 @@ export interface FigmaImageParams {
 	svg_include_id?: boolean;
 	svg_simplify_stroke?: boolean;
 	use_absolute_bounds?: boolean;
+	[key: string]: unknown;
 }
 
 // コメント関連の型
@@ -111,6 +172,13 @@ export interface FigmaUser {
 	img_url: string;
 }
 
+export interface FigmaUserResponse extends FigmaResponse {
+	id: string;
+	email: string;
+	handle: string;
+	img_url: string;
+}
+
 // Webhook関連の型
 export interface FigmaWebhook {
 	id: string;
@@ -124,6 +192,10 @@ export interface FigmaWebhook {
 	protocol_version: string;
 }
 
+export interface FigmaWebhookResponse {
+	webhook: FigmaWebhook;
+}
+
 export interface FigmaWebhooksResponse extends FigmaResponse {
 	webhooks: FigmaWebhook[];
 }
@@ -135,7 +207,12 @@ export interface FigmaVariable {
 	key: string;
 	variableCollectionId: string;
 	resolvedType: string;
-	valuesByMode: { [key: string]: any };
+	valuesByMode: {
+		[key: string]: {
+			type: string;
+			value: string | number | boolean | Record<string, unknown>;
+		};
+	};
 	remote: boolean;
 	description?: string;
 }
@@ -158,6 +235,16 @@ export interface FigmaVariableMode {
 export interface FigmaVariablesResponse extends FigmaResponse {
 	variables: FigmaVariable[];
 	variableCollections: FigmaVariableCollection[];
+}
+
+export interface FigmaVariablePublishParams {
+	variableIds: string[];
+	variableCollectionIds: string[];
+	[key: string]: unknown;
+}
+
+export interface FigmaVariablePublishResponse extends FigmaResponse {
+	// success は status: 200 で判定
 }
 
 // APIリクエストパラメータの型

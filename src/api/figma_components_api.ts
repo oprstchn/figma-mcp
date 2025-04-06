@@ -5,7 +5,15 @@
  */
 
 import { Client } from "./client.ts";
-import { FigmaComponent, FigmaComponentSet, FigmaStyle } from "./types.ts";
+import type {
+	FigmaComponent,
+	FigmaComponentSet,
+	FigmaComponentSetsResponse,
+	FigmaComponentsResponse,
+	FigmaFile,
+	FigmaStyle,
+	FigmaStylesResponse,
+} from "./types.ts";
 
 /**
  * Figmaコンポーネントアクセスクライアント
@@ -16,27 +24,33 @@ export class FigmaComponentsClient extends Client {
 	 * @param teamId チームID
 	 * @returns コンポーネントリスト
 	 */
-	async getTeamComponents(
-		teamId: string,
-	): Promise<{ components: FigmaComponent[] }> {
-		return await this.request<{ components: FigmaComponent[] }>(
+	async getTeamComponents(teamId: string): Promise<FigmaComponentsResponse> {
+		return await this.request<FigmaComponentsResponse>(
 			`/teams/${teamId}/components`,
 		);
 	}
 
-
+	/**
+	 * チームのコンポーネントセットを取得
+	 * @param teamId チームID
+	 * @returns コンポーネントセットリスト
+	 */
+	async getTeamComponentSets(
+		teamId: string,
+	): Promise<FigmaComponentSetsResponse> {
+		return await this.request<FigmaComponentSetsResponse>(
+			`/teams/${teamId}/component_sets`,
+		);
+	}
 
 	/**
 	 * チームのスタイルを取得
 	 * @param teamId チームID
 	 * @returns スタイルリスト
 	 */
-	async getTeamStyles(teamId: string): Promise<{ styles: FigmaStyle[] }> {
-		return await this.request<{ styles: FigmaStyle[] }>(
-			`/teams/${teamId}/styles`,
-		);
+	async getTeamStyles(teamId: string): Promise<FigmaStylesResponse> {
+		return await this.request<FigmaStylesResponse>(`/teams/${teamId}/styles`);
 	}
-
 
 	/**
 	 * ファイル内のすべてのコンポーネントを取得
@@ -46,7 +60,7 @@ export class FigmaComponentsClient extends Client {
 	async getAllFileComponents(
 		fileKey: string,
 	): Promise<Record<string, FigmaComponent>> {
-		const response = await this.request<any>(`/files/${fileKey}`);
+		const response = await this.request<FigmaFile>(`/files/${fileKey}`);
 		return response.components || {};
 	}
 
@@ -58,7 +72,7 @@ export class FigmaComponentsClient extends Client {
 	async getAllFileComponentSets(
 		fileKey: string,
 	): Promise<Record<string, FigmaComponentSet>> {
-		const response = await this.request<any>(`/files/${fileKey}`);
+		const response = await this.request<FigmaFile>(`/files/${fileKey}`);
 		return response.componentSets || {};
 	}
 
@@ -68,8 +82,7 @@ export class FigmaComponentsClient extends Client {
 	 * @returns スタイルマップ
 	 */
 	async getAllFileStyles(fileKey: string): Promise<Record<string, FigmaStyle>> {
-		const response = await this.request<any>(`/files/${fileKey}`);
+		const response = await this.request<FigmaFile>(`/files/${fileKey}`);
 		return response.styles || {};
 	}
-
 }

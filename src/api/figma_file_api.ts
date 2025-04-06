@@ -5,27 +5,23 @@
  */
 
 import { Client } from "./client.ts";
-import {
-	FigmaAuthConfig,
+import type {
+	FigmaCommentsResponse,
+	FigmaComponent,
 	FigmaFile,
+	FigmaFileImagesResponse,
+	FigmaFileNodesResponse,
 	FigmaFileParams,
 	FigmaImageParams,
 	FigmaImageResponse,
 	FigmaNode,
+	FigmaStyle,
 } from "./types.ts";
 
 /**
  * Figmaファイルアクセスクライアント
  */
 export class FigmaFileClient extends Client {
-	/**
-	 * Figmaファイルクライアントを初期化
-	 * @param config 認証設定
-	 */
-	constructor(config: FigmaAuthConfig) {
-		super(config);
-	}
-
 	/**
 	 * Figmaファイルを取得
 	 * @param params ファイル取得パラメータ
@@ -47,9 +43,9 @@ export class FigmaFileClient extends Client {
 	 */
 	async getFileNodes(
 		params: FigmaFileParams & { ids: string[] },
-	): Promise<FigmaFile> {
+	): Promise<FigmaFileNodesResponse> {
 		const { file_key, ...queryParams } = params;
-		return await this.request<FigmaFile>(
+		return await this.request<FigmaFileNodesResponse>(
 			`/files/${file_key}/nodes`,
 			"GET",
 			queryParams,
@@ -61,8 +57,10 @@ export class FigmaFileClient extends Client {
 	 * @param fileKey ファイルキー
 	 * @returns コメントリスト
 	 */
-	async getFileComments(fileKey: string): Promise<any> {
-		return await this.request<any>(`/files/${fileKey}/comments`);
+	async getFileComments(fileKey: string): Promise<FigmaCommentsResponse> {
+		return await this.request<FigmaCommentsResponse>(
+			`/files/${fileKey}/comments`,
+		);
 	}
 
 	/**
@@ -82,14 +80,26 @@ export class FigmaFileClient extends Client {
 		);
 	}
 
+	/**
+	 * Figmaファイル内の画像ファイルを取得
+	 * @param fileKey ファイルキー
+	 * @returns 画像URLリスト
+	 */
+	async getFileImages(fileKey: string): Promise<FigmaFileImagesResponse> {
+		return await this.request<FigmaFileImagesResponse>(
+			`/files/${fileKey}/images`,
+		);
+	}
 
 	/**
 	 * Figmaファイル内のコンポーネントを検索
 	 * @param fileKey ファイルキー
 	 * @returns コンポーネントリスト
 	 */
-	async findComponents(fileKey: string): Promise<any> {
-		const file = await this.getFile({ key: fileKey });
+	async findComponents(
+		fileKey: string,
+	): Promise<Record<string, FigmaComponent>> {
+		const file = await this.getFile({ file_key: fileKey });
 		return file.components || {};
 	}
 
@@ -98,8 +108,8 @@ export class FigmaFileClient extends Client {
 	 * @param fileKey ファイルキー
 	 * @returns スタイルリスト
 	 */
-	async findStyles(fileKey: string): Promise<any> {
-		const file = await this.getFile({ key: fileKey });
+	async findStyles(fileKey: string): Promise<Record<string, FigmaStyle>> {
+		const file = await this.getFile({ file_key: fileKey });
 		return file.styles || {};
 	}
 
@@ -115,8 +125,8 @@ export class FigmaFileClient extends Client {
 				file_key: fileKey,
 				ids: [nodeId],
 			});
-			const nodes = response.document?.children || [];
-			return nodes.find((node) => node.id === nodeId) || null;
+
+			return response.nodes?.[nodeId.replace("-", ":")]?.document || null;
 		} catch (error) {
 			console.error(`Error getting node ${nodeId}:`, error);
 			return null;
