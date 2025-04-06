@@ -467,9 +467,9 @@ export class FigmaTools {
 					file_key: z.string().describe("The key of the Figma file"),
 				},
 				cb: async (params) => {
-					const variables = await this.figmaClient.getVariables({
-						file_key: params.file_key,
-					});
+					const variables = await this.figmaClient.getFileVariables(
+						params.file_key,
+					);
 					return {
 						content: [
 							{
@@ -640,6 +640,178 @@ export class FigmaTools {
 							{
 								type: "text",
 								text: JSON.stringify(value, null, 2),
+							},
+						],
+						isError: false,
+					};
+				},
+			},
+			{
+				name: "figma_getVariableCollections",
+				description: "Get variable collections from a Figma file",
+				inputSchema: {
+					file_key: z.string().describe("The key of the Figma file"),
+				},
+				cb: async (params) => {
+					const collections = await this.figmaClient.getFileVariableCollections(
+						params.file_key,
+					);
+					return {
+						content: [
+							{
+								type: "text",
+								text: JSON.stringify(collections, null, 2),
+							},
+						],
+						isError: false,
+					};
+				},
+			},
+			{
+				name: "figma_updateVariables",
+				description: "Update variables in a Figma file",
+				inputSchema: {
+					file_key: z.string().describe("The key of the Figma file"),
+					variableUpdates: z
+						.array(
+							z.object({
+								variableId: z.string().optional(),
+								action: z.enum(["CREATE", "UPDATE", "DELETE"]),
+								name: z.string().optional(),
+								key: z.string().optional(),
+								resolvedType: z.string().optional(),
+								valuesByMode: z
+									.record(
+										z.object({
+											type: z.string(),
+											value: z.union([
+												z.string(),
+												z.number(),
+												z.boolean(),
+												z.record(z.unknown()),
+											]),
+										}),
+									)
+									.optional(),
+								description: z.string().optional(),
+								scopes: z.array(z.string()).optional(),
+							}),
+						)
+						.optional()
+						.describe("Variable updates to apply"),
+					variableCollectionUpdates: z
+						.array(
+							z.object({
+								variableCollectionId: z.string().optional(),
+								action: z.enum(["CREATE", "UPDATE", "DELETE"]),
+								name: z.string().optional(),
+								key: z.string().optional(),
+								modes: z
+									.array(
+										z.object({
+											modeId: z.string(),
+											name: z.string(),
+										}),
+									)
+									.optional(),
+								defaultModeId: z.string().optional(),
+							}),
+						)
+						.optional()
+						.describe("Variable collection updates to apply"),
+				},
+				cb: async (params) => {
+					const result = await this.figmaClient.updateVariables(
+						params.file_key,
+						{
+							variableUpdates: params.variableUpdates,
+							variableCollectionUpdates: params.variableCollectionUpdates,
+						},
+					);
+					return {
+						content: [
+							{
+								type: "text",
+								text: JSON.stringify(result, null, 2),
+							},
+						],
+						isError: false,
+					};
+				},
+			},
+			{
+				name: "figma_publishVariables",
+				description: "Publish variables from a Figma file",
+				inputSchema: {
+					file_key: z.string().describe("The key of the Figma file"),
+					variableIds: z
+						.array(z.string())
+						.describe("IDs of variables to publish"),
+					variableCollectionIds: z
+						.array(z.string())
+						.describe("IDs of variable collections to publish"),
+				},
+				cb: async (params) => {
+					const result = await this.figmaClient.publishVariables(
+						params.file_key,
+						{
+							variableIds: params.variableIds,
+							variableCollectionIds: params.variableCollectionIds,
+						},
+					);
+					return {
+						content: [
+							{
+								type: "text",
+								text: JSON.stringify(result, null, 2),
+							},
+						],
+						isError: false,
+					};
+				},
+			},
+
+			// ブランチ関連
+			{
+				name: "figma_getBranches",
+				description: "Get branches from a Figma file",
+				inputSchema: {
+					file_key: z.string().describe("The key of the Figma file"),
+				},
+				cb: async (params) => {
+					const branches = await this.figmaClient.getBranches(params.file_key);
+					return {
+						content: [
+							{
+								type: "text",
+								text: JSON.stringify(branches, null, 2),
+							},
+						],
+						isError: false,
+					};
+				},
+			},
+			{
+				name: "figma_createBranch",
+				description: "Create a new branch in a Figma file",
+				inputSchema: {
+					file_key: z.string().describe("The key of the Figma file"),
+					name: z.string().describe("Name of the branch"),
+					description: z
+						.string()
+						.optional()
+						.describe("Description of the branch"),
+				},
+				cb: async (params) => {
+					const result = await this.figmaClient.createBranch(params.file_key, {
+						name: params.name,
+						description: params.description,
+					});
+					return {
+						content: [
+							{
+								type: "text",
+								text: JSON.stringify(result, null, 2),
 							},
 						],
 						isError: false,

@@ -4,7 +4,7 @@
  * Figma APIへのアクセスを提供する基本クライアント
  */
 
-import { FigmaAuthConfig, FigmaResponse } from "./types.ts";
+import type { FigmaAuthConfig, FigmaResponse } from "./types.ts";
 
 /**
  * Figma APIクライアントのベースクラス
@@ -31,7 +31,7 @@ export class Client {
 	 */
 	protected async request<T extends FigmaResponse>(
 		endpoint: string,
-		method: string = "GET",
+		method = "GET",
 		params?: Record<string, unknown>,
 	): Promise<T> {
 		const url = new URL(`${this.apiBase}${endpoint}`);
@@ -48,7 +48,7 @@ export class Client {
 
 		// GETリクエストの場合はURLにクエリパラメータを追加
 		if (method === "GET" && params) {
-			Object.entries(params).forEach(([key, value]) => {
+			for (const [key, value] of Object.entries(params)) {
 				if (value !== undefined) {
 					if (Array.isArray(value)) {
 						// 配列の場合はカンマ区切りの文字列に変換
@@ -57,7 +57,7 @@ export class Client {
 						url.searchParams.append(key, String(value));
 					}
 				}
-			});
+			}
 		} else if (params) {
 			// GET以外の場合はリクエストボディにJSONを設定
 			options.body = JSON.stringify(params);
@@ -65,6 +65,20 @@ export class Client {
 
 		try {
 			const response = await fetch(url.toString(), options);
+
+			// レート制限情報を取得
+			const rateLimit = {
+				limit: response.headers.get("X-Rate-Limit-Limit"),
+				remaining: response.headers.get("X-Rate-Limit-Remaining"),
+				reset: response.headers.get("X-Rate-Limit-Reset"),
+			};
+
+			// レート制限情報をログに記録
+			if (rateLimit.remaining && Number.parseInt(rateLimit.remaining) < 10) {
+				console.warn(
+					`Figma API rate limit low: ${rateLimit.remaining} requests remaining`,
+				);
+			}
 
 			if (!response.ok) {
 				const errorData = await response.json();

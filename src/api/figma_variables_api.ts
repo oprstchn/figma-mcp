@@ -10,6 +10,8 @@ import type {
 	FigmaVariableCollection,
 	FigmaVariablePublishParams,
 	FigmaVariablePublishResponse,
+	FigmaVariableUpdateParams,
+	FigmaVariableUpdateResponse,
 	FigmaVariablesParams,
 	FigmaVariablesResponse,
 } from "./types.ts";
@@ -158,7 +160,10 @@ export class FigmaVariablesClient extends Client {
 		fileKey: string,
 		variableId: string,
 		modeId: string,
-	): Promise<any | null> {
+	): Promise<{
+		type: string;
+		value: string | number | boolean | Record<string, unknown>;
+	} | null> {
 		try {
 			const variable = await this.getVariable(fileKey, variableId);
 			if (!variable) return null;
@@ -168,6 +173,23 @@ export class FigmaVariablesClient extends Client {
 			console.error(`Error getting variable value for mode ${modeId}:`, error);
 			return null;
 		}
+	}
+
+	/**
+	 * 変数を更新
+	 * @param fileKey ファイルキー
+	 * @param params 更新パラメータ
+	 * @returns 更新結果
+	 */
+	async updateVariables(
+		fileKey: string,
+		params: FigmaVariableUpdateParams,
+	): Promise<FigmaVariableUpdateResponse> {
+		return await this.request<FigmaVariableUpdateResponse>(
+			`/files/${fileKey}/variables`,
+			"PATCH",
+			params,
+		);
 	}
 
 	/**

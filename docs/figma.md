@@ -4,6 +4,26 @@
 
 Figma APIは、Figmaファイル、コンポーネント、コメント、ユーザー情報などにプログラムからアクセスするためのRESTful APIです。このドキュメントでは、APIの主要な機能と使用方法について説明します。
 
+## デベロッパープラットフォーム
+
+Figmaは以下の開発者向けツールを提供しています：
+
+1. **Figma REST API**：
+   - 外部アプリケーションからFigmaファイルやデータにアクセス
+   - チーム管理、ファイル操作、コメント管理などの自動化
+
+2. **Figma Plugins**：
+   - Figma内で動作するカスタム機能を開発
+   - デザインファイルの直接操作が可能
+
+3. **Figma Widgets**：
+   - インタラクティブな要素をFigmaファイルに追加
+   - リアルタイムコラボレーション機能の拡張
+
+4. **Dev Mode**：
+   - デザインとコード間のギャップを埋めるための機能
+   - デザイン仕様の自動抽出とエクスポート
+
 ## 認証
 
 Figma APIでは、以下の2つの認証方法をサポートしています：
@@ -18,18 +38,36 @@ Figma APIでは、以下の2つの認証方法をサポートしています：
    - コールバックを登録してクライアントシークレットを取得
    - 特定ユーザーの代わりに操作する必要がない場合に適している
 
+### OAuth2 アプリケーション設定
+
+OAuth2アプリケーションを作成するには、以下の手順に従います：
+
+1. Figmaアカウントページで「設定」を開く
+2. 「開発者向け」>「新しいアプリを作成」をクリック
+3. 以下の情報を入力:
+   - アプリ名
+   - リダイレクトURI
+   - 必要なスコープ選択
+4. クライアントIDとクライアントシークレットを取得
+
 ### スコープ
 
-APIアクセスのスコープは以下のとおりです：
+APIアクセスの最新のスコープは以下のとおりです：
 
-- `files:read`: ファイル、プロジェクト、ユーザー、バージョン、コメント、コンポーネント、スタイル、Webhooksの読み取り
-- `file_variables:read`: Figmaファイル内の変数の読み取り（Enterprise組織のメンバーのみ）
-- `file_variables:write`: Figmaファイル内の変数の書き込み（Enterprise組織のメンバーのみ）
+- `files:read`: 基本的なファイル読み取り
+- `files:write`: ファイルの作成・更新・削除（Beta）
+- `file_variables:read`: 変数の読み取り（Enterprise組織のメンバーのみ）
+- `file_variables:write`: 変数の作成・更新（Enterprise組織のメンバーのみ）
+- `file_comments:read`: コメントの読み取り
 - `file_comments:write`: ファイル内のコメントの投稿と削除
+- `file_branches:read`: ブランチの読み取り
+- `file_branches:write`: ブランチの作成・更新
 - `file_dev_resources:read`: 開発リソースの読み取り
-- `file_dev_resources:write`: 開発リソースの書き込み
+- `file_dev_resources:write`: 開発リソースの作成・更新
 - `library_analytics:read`: デザインシステム分析の読み取り
 - `webhooks:write`: Webhooksの作成と管理
+- `users:read`: ユーザー情報の読み取り
+- `orgs:read`: 組織情報の読み取り
 
 注意: `file_read` スコープはOAuth 2トークンでは非推奨です。上記のスコープを使用してください。
 
@@ -435,6 +473,41 @@ APIアクセスのスコープは以下のとおりです：
 }
 ```
 
+### Webhook イベントタイプ
+
+Webhookで使用可能なイベントタイプは以下の通りです：
+
+- `FILE_UPDATE`: ファイルが更新されたとき
+- `FILE_VERSION_UPDATE`: ファイルの新しいバージョンが作成されたとき
+- `FILE_DELETE`: ファイルが削除されたとき
+- `FILE_COMMENT`: ファイルにコメントが追加されたとき
+- `LIBRARY_PUBLISH`: ライブラリが公開されたとき
+- `FILE_BRANCH_UPDATE`: ファイルのブランチが更新されたとき
+- `FILE_BRANCH_MERGE`: ブランチがマージされたとき
+- `LIBRARY_PUBLISH_ERROR`: ライブラリの公開に失敗したとき
+- `VARIABLE_PUBLISH`: 変数が公開されたとき
+- `DEV_RESOURCE_UPDATED`: 開発リソースが更新されたとき
+
+Webhookイベントのペイロード例:
+```json
+{
+  "event_type": "イベントタイプ",
+  "team_id": "チームID",
+  "file_key": "ファイルキー",
+  "file_name": "ファイル名",
+  "timestamp": "タイムスタンプ",
+  "passcode": "パスコード",
+  "webhook_id": "WebhookID",
+  "transaction_id": "トランザクションID",
+  "triggered_by": {
+    "id": "ユーザーID",
+    "handle": "ハンドル"
+  },
+  "client_id": "クライアントID",
+  "contents": {...}
+}
+```
+
 ### 変数
 
 #### GET /v1/files/:file_key/variables
@@ -514,6 +587,218 @@ APIアクセスのスコープは以下のとおりです：
 }
 ```
 
+#### PATCH /v1/files/:file_key/variables
+
+ファイルの変数を更新します（Enterprise限定）。
+
+**パラメータ**:
+- `file_key`: ファイルキー
+
+**リクエストボディ**:
+```json
+{
+  "variableUpdates": [
+    {
+      "variableId": "変数ID",
+      "action": "UPDATE", // CREATE, UPDATE, DELETE のいずれか
+      "name": "変数名",
+      "key": "変数キー",
+      "variableCollectionId": "コレクションID",
+      "resolvedType": "解決タイプ",
+      "valuesByMode": {
+        "modeId": {
+          "type": "タイプ",
+          "value": "値"
+        }
+      },
+      "description": "説明",
+      "scopes": ["スコープ"]
+    }
+  ],
+  "variableCollectionUpdates": [
+    {
+      "variableCollectionId": "コレクションID",
+      "action": "UPDATE", // CREATE, UPDATE, DELETE のいずれか
+      "name": "コレクション名",
+      "key": "コレクションキー",
+      "modes": [
+        {
+          "modeId": "モードID",
+          "name": "モード名"
+        }
+      ],
+      "defaultModeId": "デフォルトモードID"
+    }
+  ]
+}
+```
+
+**レスポンス**:
+```json
+{
+  "status": 200,
+  "error": false,
+  "meta": {
+    "variableUpdates": [
+      {
+        "id": "変数ID",
+        "status": "status_code"
+      }
+    ],
+    "variableCollectionUpdates": [
+      {
+        "id": "コレクションID",
+        "status": "status_code"
+      }
+    ]
+  }
+}
+```
+
+### Dev Resources API
+
+#### GET /v1/files/:key/dev_resources
+
+ファイル内の開発リソースを取得します。
+
+**パラメータ**:
+- `key`: ファイルキー
+- `node_id`（オプション）: 特定のノードID
+- `depth`（オプション）: 探索深度
+
+**レスポンス**:
+```json
+{
+  "status": 200,
+  "error": false,
+  "meta": {
+    "dev_resources": [
+      {
+        "key": "リソースキー",
+        "file_key": "ファイルキー",
+        "node_id": "ノードID",
+        "name": "リソース名",
+        "resource_type": "リソースタイプ",
+        "created_at": "作成日時",
+        "updated_at": "更新日時",
+        "properties": {...},
+        "user": {
+          "id": "ユーザーID",
+          "handle": "ハンドル",
+          "img_url": "画像URL"
+        }
+      }
+    ]
+  }
+}
+```
+
+#### POST /v1/files/:key/dev_resources
+
+ファイルに開発リソースを追加します。
+
+**パラメータ**:
+- `key`: ファイルキー
+
+**リクエストボディ**:
+```json
+{
+  "node_id": "ノードID",
+  "name": "リソース名",
+  "resource_type": "リソースタイプ",
+  "properties": {...}
+}
+```
+
+**レスポンス**:
+```json
+{
+  "status": 200,
+  "error": false,
+  "meta": {
+    "dev_resource": {
+      "key": "リソースキー",
+      "file_key": "ファイルキー",
+      "node_id": "ノードID",
+      "name": "リソース名",
+      "resource_type": "リソースタイプ",
+      "created_at": "作成日時",
+      "updated_at": "更新日時",
+      "properties": {...},
+      "user": {...}
+    }
+  }
+}
+```
+
+### Branch API
+
+#### GET /v1/files/:key/branches
+
+ファイルのブランチ一覧を取得します。
+
+**パラメータ**:
+- `key`: ファイルキー
+
+**レスポンス**:
+```json
+{
+  "status": 200,
+  "error": false,
+  "meta": {
+    "branches": [
+      {
+        "key": "ブランチキー",
+        "name": "ブランチ名",
+        "description": "説明",
+        "created_at": "作成日時",
+        "updated_at": "更新日時",
+        "creator": {
+          "id": "ユーザーID",
+          "handle": "ハンドル",
+          "img_url": "画像URL"
+        },
+        "status": "ステータス"
+      }
+    ]
+  }
+}
+```
+
+#### POST /v1/files/:key/branches
+
+ファイルに新しいブランチを作成します。
+
+**パラメータ**:
+- `key`: ファイルキー
+
+**リクエストボディ**:
+```json
+{
+  "name": "ブランチ名",
+  "description": "説明"
+}
+```
+
+**レスポンス**:
+```json
+{
+  "status": 200,
+  "error": false,
+  "meta": {
+    "branch": {
+      "key": "ブランチキー",
+      "name": "ブランチ名",
+      "description": "説明",
+      "created_at": "作成日時",
+      "updated_at": "更新日時",
+      "creator": {...},
+      "status": "ステータス"
+    }
+  }
+}
+```
+
 ## ファイル構造
 
 Figmaファイルは以下の構造を持っています：
@@ -539,13 +824,18 @@ Figmaファイルは以下の構造を持っています：
 
 APIはHTTPステータスコードを使用してエラーを示します：
 
-- 200: 成功
-- 400: 不正なリクエスト
-- 401: 認証エラー
-- 403: 権限エラー
-- 404: リソースが見つからない
-- 429: レート制限超過
-- 500: サーバーエラー
+| ステータスコード | 説明 | 対応方法 |
+|------------|------------|------------|
+| 200 | 成功 | - |
+| 400 | 不正なリクエスト | リクエストパラメータを確認 |
+| 401 | 認証エラー | アクセストークンを確認 |
+| 403 | 権限エラー | 適切なスコープと権限を確認 |
+| 404 | リソースが見つからない | ファイルキーやIDを確認 |
+| 409 | リソースの競合 | 最新の状態を取得して再試行 |
+| 413 | ペイロードが大きすぎる | リクエストサイズを削減 |
+| 429 | レート制限超過 | X-Rate-Limit-Resetまで待機 |
+| 500 | サーバーエラー | 一時的な問題の可能性、後で再試行 |
+| 503 | サービス利用不可 | 一時的な問題の可能性、後で再試行 |
 
 エラーレスポンスの例:
 ```json
@@ -558,8 +848,18 @@ APIはHTTPステータスコードを使用してエラーを示します：
 
 ## レート制限
 
-- 個人アクセストークン: 1分あたり60リクエスト
-- OAuth2トークン: 1分あたりユーザーごとに60リクエスト
+Figma APIはレート制限を適用しており、以下のヘッダーで制限状況を確認できます：
+
+- `X-Rate-Limit-Limit`: 期間内の最大リクエスト数
+- `X-Rate-Limit-Remaining`: 残りのリクエスト数
+- `X-Rate-Limit-Reset`: 制限がリセットされる時間（Unix時間）
+
+現在のレート制限：
+- 個人アクセストークン: 1分あたり120リクエスト
+- OAuth2トークン: 1分あたりユーザーごとに120リクエスト
+- イメージAPI: 30分あたり2,000リクエスト
+
+バーストトラフィックに対する追加制限も適用される場合があります。
 
 レート制限に達すると、429ステータスコードが返されます。
 

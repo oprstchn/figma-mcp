@@ -5,6 +5,7 @@
  */
 
 import { Client } from "./client.ts";
+import { FigmaBranchClient } from "./figma_branch_api.ts";
 import { FigmaCommentsClient } from "./figma_comments_api.ts";
 import { FigmaComponentsClient } from "./figma_components_api.ts";
 import { FigmaFileClient } from "./figma_file_api.ts";
@@ -12,12 +13,15 @@ import { FigmaVariablesClient } from "./figma_variables_api.ts";
 import { FigmaWebhooksClient } from "./figma_webhooks_api.ts";
 import type {
 	FigmaAuthConfig,
+	FigmaBranchResponse,
+	FigmaBranchesResponse,
 	FigmaComment,
 	FigmaCommentsResponse,
 	FigmaComponent,
 	FigmaComponentSet,
 	FigmaComponentSetsResponse,
 	FigmaComponentsResponse,
+	FigmaCreateBranchParams,
 	FigmaFile,
 	FigmaFileImagesResponse,
 	FigmaFileNodesResponse,
@@ -32,6 +36,8 @@ import type {
 	FigmaVariableCollection,
 	FigmaVariablePublishParams,
 	FigmaVariablePublishResponse,
+	FigmaVariableUpdateParams,
+	FigmaVariableUpdateResponse,
 	FigmaVariablesResponse,
 	FigmaWebhook,
 	FigmaWebhookResponse,
@@ -47,6 +53,7 @@ export class FigmaClient extends Client {
 	public readonly components: FigmaComponentsClient;
 	public readonly variables: FigmaVariablesClient;
 	public readonly webhooks: FigmaWebhooksClient;
+	public readonly branches: FigmaBranchClient;
 
 	/**
 	 * 統合 Figma API クライアントを初期化
@@ -61,6 +68,7 @@ export class FigmaClient extends Client {
 		this.components = new FigmaComponentsClient(config);
 		this.variables = new FigmaVariablesClient(config);
 		this.webhooks = new FigmaWebhooksClient(config);
+		this.branches = new FigmaBranchClient(config);
 	}
 
 	// File API メソッド
@@ -326,5 +334,25 @@ export class FigmaClient extends Client {
 	// ユーザー関連メソッド
 	async getCurrentUser(): Promise<FigmaUserResponse> {
 		return await this.request<FigmaUserResponse>("/me");
+	}
+
+	// Branch API メソッド
+	async getBranches(fileKey: string): Promise<FigmaBranchesResponse> {
+		return await this.branches.getBranches(fileKey);
+	}
+
+	async createBranch(
+		fileKey: string,
+		params: FigmaCreateBranchParams,
+	): Promise<FigmaBranchResponse> {
+		return await this.branches.createBranch(fileKey, params);
+	}
+
+	// Variables API の拡張メソッド
+	async updateVariables(
+		fileKey: string,
+		params: FigmaVariableUpdateParams,
+	): Promise<FigmaVariableUpdateResponse> {
+		return await this.variables.updateVariables(fileKey, params);
 	}
 }

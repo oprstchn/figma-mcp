@@ -247,6 +247,78 @@ export interface FigmaVariablePublishResponse extends FigmaResponse {
 	// success は status: 200 で判定
 }
 
+// ブランチ関連の型
+export interface FigmaBranch {
+	key: string;
+	name: string;
+	description?: string;
+	created_at: string;
+	updated_at: string;
+	creator: {
+		id: string;
+		handle: string;
+		img_url: string;
+	};
+	status: string;
+}
+
+export interface FigmaBranchesResponse extends FigmaResponse {
+	meta: {
+		branches: FigmaBranch[];
+	};
+}
+
+export interface FigmaBranchResponse extends FigmaResponse {
+	meta: {
+		branch: FigmaBranch;
+	};
+}
+
+export interface FigmaCreateBranchParams extends Record<string, unknown> {
+	name: string;
+	description?: string;
+}
+
+// 変数更新関連の型
+export interface FigmaVariableUpdateAction {
+	variableId?: string;
+	variableCollectionId?: string;
+	action: "CREATE" | "UPDATE" | "DELETE";
+	name?: string;
+	key?: string;
+	resolvedType?: string;
+	valuesByMode?: {
+		[modeId: string]: {
+			type: string;
+			value: string | number | boolean | Record<string, unknown>;
+		};
+	};
+	description?: string;
+	scopes?: string[];
+	modes?: {
+		modeId: string;
+		name: string;
+	}[];
+	defaultModeId?: string;
+}
+
+export interface FigmaVariableUpdateParams extends Record<string, unknown> {
+	variableUpdates?: FigmaVariableUpdateAction[];
+	variableCollectionUpdates?: FigmaVariableUpdateAction[];
+}
+
+export interface FigmaVariableUpdateStatus {
+	id: string;
+	status: string;
+}
+
+export interface FigmaVariableUpdateResponse extends FigmaResponse {
+	meta?: {
+		variableUpdates?: FigmaVariableUpdateStatus[];
+		variableCollectionUpdates?: FigmaVariableUpdateStatus[];
+	};
+}
+
 // APIリクエストパラメータの型
 export interface FigmaFileParams {
 	file_key: string;
