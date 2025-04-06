@@ -4,15 +4,15 @@
  * MCPプロトコルを使用してFigma APIとのインテグレーションを提供するサーバー
  */
 
-import { load } from "https://deno.land/std@0.203.0/dotenv/mod.ts";
-import { Server } from "npm:@modelcontextprotocol/sdk@1.8.0/server/index.js";
-import { StdioServerTransport } from "npm:@modelcontextprotocol/sdk@1.8.0/server/stdio.js";
+import { Server } from "@mcp/sdk/server/index.js";
+import { StdioServerTransport } from "@mcp/sdk/server/stdio.js";
 import {
-	CallToolRequest,
+	type CallToolRequest,
 	CallToolRequestSchema,
 	ListResourcesRequestSchema,
 	ListToolsRequestSchema,
-} from "npm:@modelcontextprotocol/sdk@1.8.0/types.js";
+} from "@mcp/sdk/types.js";
+import { load } from "std/dotenv/mod.ts";
 import { FigmaClient } from "./src/api/figma_client.ts";
 
 // .env ファイルを読み込む
@@ -722,16 +722,16 @@ const server = new Server(
 				figma_getFile: TOOLS[0],
 				figma_getFileNodes: TOOLS[1],
 				figma_getNode: TOOLS[2],
-				
+
 				// コンポーネント関連
 				figma_getComponents: TOOLS[3],
 				figma_getAllFileComponentSets: TOOLS[4],
 				figma_getTeamComponents: TOOLS[5],
-				
+
 				// スタイル関連
 				figma_getStyles: TOOLS[6],
 				figma_getTeamStyles: TOOLS[7],
-				
+
 				// コメント関連
 				figma_getComments: TOOLS[8],
 				figma_postComment: TOOLS[9],
@@ -739,10 +739,10 @@ const server = new Server(
 				figma_deleteComment: TOOLS[11],
 				figma_getResolvedComments: TOOLS[12],
 				figma_getUnresolvedComments: TOOLS[13],
-				
+
 				// 画像関連
 				figma_getImages: TOOLS[14],
-				
+
 				// 変数関連
 				figma_getVariables: TOOLS[15],
 				figma_getFileVariables: TOOLS[16],
@@ -751,7 +751,7 @@ const server = new Server(
 				figma_getVariableCollection: TOOLS[19],
 				figma_getVariablesByCollection: TOOLS[20],
 				figma_getVariablesByType: TOOLS[21],
-				
+
 				// Webhook関連
 				figma_getTeamWebhooks: TOOLS[22],
 				figma_createWebhook: TOOLS[23],
@@ -759,7 +759,7 @@ const server = new Server(
 				figma_getWebhook: TOOLS[25],
 				figma_getWebhooksByEventType: TOOLS[26],
 				figma_findWebhooksByEndpoint: TOOLS[27],
-				
+
 				// 複合関数
 				figma_getFileWithComments: TOOLS[28],
 				figma_getFileAssetsAndVariables: TOOLS[29],
@@ -1082,7 +1082,9 @@ server.setRequestHandler(
 				}
 
 				case "figma_getAllFileComponentSets": {
-					const componentSets = await figma.getAllFileComponentSets(args.file_key);
+					const componentSets = await figma.getAllFileComponentSets(
+						args.file_key,
+					);
 					return {
 						content: [
 							{
@@ -1175,7 +1177,10 @@ server.setRequestHandler(
 				}
 
 				case "figma_deleteComment": {
-					const result = await figma.deleteComment(args.file_key, args.comment_id);
+					const result = await figma.deleteComment(
+						args.file_key,
+						args.comment_id,
+					);
 					return {
 						content: [
 							{
@@ -1233,7 +1238,9 @@ server.setRequestHandler(
 
 				// 変数関連
 				case "figma_getVariables": {
-					const variables = await figma.getVariables({ file_key: args.file_key });
+					const variables = await figma.getVariables({
+						file_key: args.file_key,
+					});
 					return {
 						content: [
 							{
@@ -1259,7 +1266,9 @@ server.setRequestHandler(
 				}
 
 				case "figma_getFileVariableCollections": {
-					const collections = await figma.getFileVariableCollections(args.file_key);
+					const collections = await figma.getFileVariableCollections(
+						args.file_key,
+					);
 					return {
 						content: [
 							{
@@ -1272,7 +1281,10 @@ server.setRequestHandler(
 				}
 
 				case "figma_getVariable": {
-					const variable = await figma.getVariable(args.file_key, args.variable_id);
+					const variable = await figma.getVariable(
+						args.file_key,
+						args.variable_id,
+					);
 					return {
 						content: [
 							{
@@ -1285,7 +1297,10 @@ server.setRequestHandler(
 				}
 
 				case "figma_getVariableCollection": {
-					const collection = await figma.getVariableCollection(args.file_key, args.collection_id);
+					const collection = await figma.getVariableCollection(
+						args.file_key,
+						args.collection_id,
+					);
 					return {
 						content: [
 							{
@@ -1298,7 +1313,10 @@ server.setRequestHandler(
 				}
 
 				case "figma_getVariablesByCollection": {
-					const variables = await figma.getVariablesByCollection(args.file_key, args.collection_id);
+					const variables = await figma.getVariablesByCollection(
+						args.file_key,
+						args.collection_id,
+					);
 					return {
 						content: [
 							{
@@ -1311,7 +1329,10 @@ server.setRequestHandler(
 				}
 
 				case "figma_getVariablesByType": {
-					const variables = await figma.getVariablesByType(args.file_key, args.type);
+					const variables = await figma.getVariablesByType(
+						args.file_key,
+						args.type,
+					);
 					return {
 						content: [
 							{
@@ -1351,7 +1372,10 @@ server.setRequestHandler(
 				}
 
 				case "figma_deleteWebhook": {
-					const result = await figma.deleteWebhook(args.team_id, args.webhook_id);
+					const result = await figma.deleteWebhook(
+						args.team_id,
+						args.webhook_id,
+					);
 					return {
 						content: [
 							{
@@ -1377,7 +1401,10 @@ server.setRequestHandler(
 				}
 
 				case "figma_getWebhooksByEventType": {
-					const webhooks = await figma.getWebhooksByEventType(args.team_id, args.event_type);
+					const webhooks = await figma.getWebhooksByEventType(
+						args.team_id,
+						args.event_type,
+					);
 					return {
 						content: [
 							{
@@ -1390,7 +1417,10 @@ server.setRequestHandler(
 				}
 
 				case "figma_findWebhooksByEndpoint": {
-					const webhooks = await figma.findWebhooksByEndpoint(args.team_id, args.endpoint);
+					const webhooks = await figma.findWebhooksByEndpoint(
+						args.team_id,
+						args.endpoint,
+					);
 					return {
 						content: [
 							{
