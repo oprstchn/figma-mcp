@@ -12,6 +12,10 @@
 # リポジトリをクローン
 git clone https://github.com/oprstchn/figma-mcp.git
 cd figma-mcp
+
+# 環境変数を設定
+cp .env.example .env
+# .envファイルを編集してFIGMA_ACCESS_TOKENを設定
 ```
 
 ## 開発
@@ -23,9 +27,13 @@ figma-mcp/
 ├── src/               # ソースコード
 │   ├── api/           # Figma API実装
 │   ├── auth/          # 認証モジュール
-│   └── mod.ts         # メインモジュール
+│   ├── server/        # MCPサーバー実装
+│   ├── mod.ts         # メインモジュール
+│   ├── resource.ts    # Figmaリソース実装
+│   └── tools.ts       # Figmaツール実装
 ├── docs/              # ドキュメント
-└── server.ts          # MCPサーバー実装
+├── deno.json          # Denoプロジェクト設定
+└── main.ts            # メインエントリーポイント
 ```
 
 ### テストの実行
@@ -41,11 +49,17 @@ deno test --allow-net --allow-env --allow-read --allow-write tests/figma_api_tes
 ### サーバーの実行
 
 ```bash
-# サーバーを起動
-deno task start
+# stdio モードでサーバーを起動
+deno run --allow-net --allow-env --allow-read --allow-write --allow-run main.ts --mode=stdio
+
+# SSE モードでサーバーを起動 (デフォルトポート: 8888)
+deno run --allow-net --allow-env --allow-read --allow-write --allow-run main.ts --mode=sse
+
+# カスタムポートでSSEサーバーを起動
+deno run --allow-net --allow-env --allow-read --allow-write --allow-run main.ts --mode=sse --port=3000
 
 # 開発モード（ファイル変更を監視）でサーバーを起動
-deno task dev
+deno run --watch --allow-net --allow-env --allow-read --allow-write --allow-run main.ts --mode=sse
 ```
 
 ## Figma API アクセス
@@ -57,7 +71,8 @@ deno task dev
 3. 新しいトークンを生成
 4. 環境変数に設定:
    ```bash
-   export FIGMA_ACCESS_TOKEN="your-token-here"
+   # .envファイルを編集
+   FIGMA_ACCESS_TOKEN="your-token-here"
    ```
 
 ### OAuth2 設定
@@ -85,7 +100,7 @@ deno task dev
 
 ## Model Context Protocol (MCP)
 
-MCPの詳細については[mcp.md](/mcp.md)および[model_context_protocol_design.md](/docs/model_context_protocol_design.md)を参照してください。
+MCPの詳細については[mcp.md](/mcp.md)およびMCP公式ドキュメントを参照してください。本プロジェクトでは`@modelcontextprotocol/sdk`パッケージを使用しています。
 
 ## 貢献ガイドライン
 
@@ -124,13 +139,3 @@ MCPの詳細については[mcp.md](/mcp.md)および[model_context_protocol_des
 - **認証エラー**: アクセストークンが正しく設定されているか確認
 - **レート制限**: Figma APIのレート制限（1分あたり60リクエスト）に注意
 - **大きなファイル**: 大きなFigmaファイルを処理する場合はバッチ処理を使用
-
-### デバッグ
-
-```typescript
-// デバッグログを有効化
-const client = new FigmaClient({ 
-  accessToken: "your-token",
-  debug: true 
-});
-```
