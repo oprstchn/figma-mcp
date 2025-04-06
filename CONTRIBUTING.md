@@ -1,17 +1,17 @@
-# Figma Model Context Protocol - 開発ガイド
+# Figma MCP - 開発ガイド
 
 ## 開発環境のセットアップ
 
 ### 前提条件
 
-- [Deno](https://deno.land/) 1.32.0以上がインストールされていること
+- [Deno](https://deno.land/) 1.41.0以上がインストールされていること
 
 ### インストール
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/yourusername/figma-model-context-protocol.git
-cd figma-model-context-protocol
+git clone https://github.com/oprstchn/figma-mcp.git
+cd figma-mcp
 ```
 
 ## 開発
@@ -19,17 +19,13 @@ cd figma-model-context-protocol
 ### プロジェクト構造
 
 ```
-figma-model-context-protocol/
+figma-mcp/
 ├── src/               # ソースコード
 │   ├── api/           # Figma API実装
 │   ├── auth/          # 認証モジュール
-│   ├── model/         # Model Context Protocol
-│   ├── adapters/      # 変換アダプター
 │   └── mod.ts         # メインモジュール
-├── tests/             # テストコード
-├── examples/          # 使用例
 ├── docs/              # ドキュメント
-└── figma.md           # Figma API仕様
+└── server.ts          # MCPサーバー実装
 ```
 
 ### テストの実行
@@ -39,17 +35,17 @@ figma-model-context-protocol/
 deno task test
 
 # 特定のテストファイルを実行
-deno test --allow-net --allow-env --allow-read --allow-write tests/integration_test.ts
+deno test --allow-net --allow-env --allow-read --allow-write tests/figma_api_test.ts
 ```
 
-### 使用例の実行
+### サーバーの実行
 
 ```bash
-# 基本的な使用例
-deno task example:basic <file_key>
+# サーバーを起動
+deno task start
 
-# AI統合の使用例
-deno task example:ai <file_key> [roocode|cline]
+# 開発モード（ファイル変更を監視）でサーバーを起動
+deno task dev
 ```
 
 ## Figma API アクセス
@@ -87,66 +83,18 @@ deno task example:ai <file_key> [roocode|cline]
    const tokenResponse = await FigmaAuth.exchangeCodeForToken(config, code);
    ```
 
-## パフォーマンス最適化
+## Model Context Protocol (MCP)
 
-### キャッシュ設定
-
-```typescript
-import { configure } from "./src/mod.ts";
-
-// キャッシュ設定をカスタマイズ
-configure({
-  cache: {
-    enabled: true,
-    ttl: 10 * 60 * 1000, // 10分
-  }
-});
-```
-
-### 並列処理設定
-
-```typescript
-import { configure } from "./src/mod.ts";
-
-// 並列処理設定をカスタマイズ
-configure({
-  concurrency: {
-    maxRequests: 10,
-    requestDelay: 50,
-  }
-});
-```
-
-### パフォーマンスモニタリング
-
-```typescript
-import { PerformanceMonitor } from "./src/mod.ts";
-
-// タイマーを開始
-PerformanceMonitor.startTimer("operation");
-
-// 処理を実行
-// ...
-
-// タイマーを終了して経過時間を取得
-const elapsed = PerformanceMonitor.endTimer("operation");
-console.log(`処理時間: ${elapsed}ms`);
-
-// カウンターをインクリメント
-PerformanceMonitor.incrementCounter("api_calls");
-
-// レポートを取得
-const report = PerformanceMonitor.getReport();
-console.log(report);
-```
+MCPの詳細については[mcp.md](/mcp.md)および[model_context_protocol_design.md](/docs/model_context_protocol_design.md)を参照してください。
 
 ## 貢献ガイドライン
 
 ### コーディング規約
 
-- TypeScriptの型を適切に使用する
-- ドキュメンテーションコメントを追加する
-- テストを作成する
+- TypeScriptの型を適切に使用すること
+- ドキュメンテーションコメントを追加すること
+- テストを作成すること
+- CLAUDE.mdに記載されたコードスタイルガイドラインに従うこと
 
 ### プルリクエスト
 
@@ -156,12 +104,18 @@ console.log(report);
 4. ブランチをプッシュ (`git push origin feature/amazing-feature`)
 5. プルリクエストを作成
 
+### プルリクエストチェックリスト
+
+- [ ] テストが追加されていること
+- [ ] ドキュメントが更新されていること
+- [ ] コードスタイルに従っていること
+- [ ] すべてのテストが成功していること
+
 ## リリースプロセス
 
 1. バージョン番号を更新 (deno.json)
-2. CHANGELOG.mdを更新
-3. タグを作成 (`git tag v1.0.0`)
-4. タグをプッシュ (`git push origin v1.0.0`)
+2. タグを作成 (`git tag v1.0.0`)
+3. タグをプッシュ (`git push origin v1.0.0`)
 
 ## トラブルシューティング
 

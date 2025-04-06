@@ -1,6 +1,6 @@
-# Model Context Protocol
+# Figma Model Context Protocol (MCP)
 
-Model Context Protocolは、FigmaのデザインデータをRooCodeやClineなどのAIモデルが理解できる形式に変換するためのプロトコルです。このプロジェクトはDenoを使用して実装されています。
+Figma Model Context Protocolは、FigmaのデザインデータをAIモデルが理解できる形式に変換するためのプロトコルです。このプロジェクトはDenoを使用して実装されています。
 
 ## 概要
 
@@ -8,17 +8,15 @@ Model Context Protocolは、FigmaのデザインデータをRooCodeやClineな�
 
 1. **Figma API クライアント**: Figma APIと通信するためのクライアントライブラリ
 2. **Model Context Protocol**: デザインコンテキストを表現するための標準化されたデータモデル
-3. **アダプター**: Figma APIデータをModel Context形式に変換するためのアダプター
-4. **AI統合**: RooCodeとClineとの統合インターフェース
 
 ## インストール
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/oprstchn/figma-model-context-protocol.git
-cd figma-model-context-protocol
+git clone https://github.com/oprstchn/figma-mcp.git
+cd figma-mcp
 
-# 依存関係をインストール（必要な場合）
+# 依存関係をインストール
 deno cache --reload src/mod.ts
 ```
 
@@ -26,7 +24,7 @@ deno cache --reload src/mod.ts
 
 ### サーバーの起動
 
-リポジトリのルートにある`server.ts`を使用して、Figma Model Context Protocolサーバーを起動できます。
+リポジトリのルートにある`server.ts`を使用して、Figma MCPサーバーを起動できます。
 
 ```bash
 # 環境変数を設定
@@ -51,33 +49,17 @@ deno task start
 
 ```typescript
 import { FigmaClient } from "./src/api/figma_client.ts";
-import { FigmaToModelContextAdapter } from "./src/adapters/figma_to_model_context_adapter.ts";
-import { AIModelIntegrationFactory } from "./src/adapters/ai_model_integration.ts";
 
 // Figma APIクライアントを初期化
 const client = new FigmaClient({
   accessToken: "your-figma-access-token"
 });
 
-// アダプターを作成
-const adapter = new FigmaToModelContextAdapter(client);
-
-// Figmaファイルをモデルコンテキストに変換
+// ファイルを取得
 const fileKey = "figma-file-key";
-const modelContext = await adapter.convertFileToModelContext(fileKey, {
-  includeStyles: true,
-  includeVariables: true,
-  includeImages: true
-});
+const file = await client.getFile(fileKey);
 
-// RooCode統合を作成
-const rooCodeIntegration = AIModelIntegrationFactory.createIntegration("roocode");
-
-// プロンプトにコンテキストを注入
-const prompt = "このデザインに基づいてHTMLとCSSを生成してください";
-const enhancedPrompt = rooCodeIntegration.injectContext(modelContext, prompt);
-
-console.log(enhancedPrompt);
+console.log(file);
 ```
 
 ### Figma認証
@@ -105,19 +87,6 @@ const tokenResponse = await FigmaAuth.exchangeCodeForToken(oauthConfig, code);
 console.log(`アクセストークン: ${tokenResponse.access_token}`);
 ```
 
-### Clineとの統合
-
-```typescript
-// Cline統合を作成
-const clineIntegration = AIModelIntegrationFactory.createIntegration("cline");
-
-// プロンプトにコンテキストを注入
-const prompt = "このデザインに基づいてReactコンポーネントを生成してください";
-const enhancedPrompt = clineIntegration.injectContext(modelContext, prompt);
-
-console.log(enhancedPrompt);
-```
-
 ## 利用可能なスクリプト
 
 `deno.json`に定義されたスクリプトを使用して、さまざまな操作を実行できます：
@@ -126,19 +95,11 @@ console.log(enhancedPrompt);
 # テストを実行
 deno task test
 
-# 基本的な使用例を実行
-deno task example:basic
-
-# AI統合の例を実行
-deno task example:ai
-
 # サーバーを起動
 deno task start
 
 # 開発モード（ファイル変更を監視）でサーバーを起動
 deno task dev
-# または
-deno task start:watch
 ```
 
 ## API リファレンス
@@ -162,7 +123,7 @@ const client = new FigmaClient({
 Figmaファイルにアクセスするためのメソッドを提供します。
 
 ```typescript
-const fileApi = new FigmaFileAPI(client);
+const fileApi = client.file;
 
 // ファイルを取得
 const file = await fileApi.getFile("file-key");
@@ -182,7 +143,7 @@ const imageFills = await fileApi.getImageFills("file-key");
 Figmaコンポーネントとスタイルにアクセスするためのメソッドを提供します。
 
 ```typescript
-const componentsApi = new FigmaComponentsAPI(client);
+const componentsApi = client.components;
 
 // チームコンポーネントを取得
 const components = await componentsApi.getTeamComponents("team-id");
@@ -202,7 +163,7 @@ const component = await componentsApi.getComponent("component-key");
 Figmaコメントを管理するためのメソッドを提供します。
 
 ```typescript
-const commentsApi = new FigmaCommentsAPI(client);
+const commentsApi = client.comments;
 
 // コメントを取得
 const comments = await commentsApi.getComments("file-key");
@@ -228,7 +189,7 @@ await commentsApi.resolveComment("file-key", "comment-id");
 FigmaのWebhookを管理するためのメソッドを提供します。
 
 ```typescript
-const webhooksApi = new FigmaWebhooksAPI(client);
+const webhooksApi = client.webhooks;
 
 // Webhookを取得
 const webhooks = await webhooksApi.getWebhooks("team-id");
@@ -252,7 +213,7 @@ const updatedWebhook = await webhooksApi.updateWebhook("webhook-id", {
 Figma変数を管理するためのメソッドを提供します（Enterprise限定）。
 
 ```typescript
-const variablesApi = new FigmaVariablesAPI(client);
+const variablesApi = client.variables;
 
 // 変数を取得
 const variables = await variablesApi.getVariables("file-key");
@@ -276,132 +237,30 @@ const newVariable = await variablesApi.createVariable("file-key", {
 });
 ```
 
-### Model Context Protocol
+## Model Context Protocol (MCP)
 
-#### ModelContextProtocol
-
-Model Context Protocolのコア実装。
-
-```typescript
-// 空のコンテキストを作成
-const context = ModelContextProtocol.createEmptyContext({
-  type: "figma",
-  fileKey: "file-key",
-  fileName: "ファイル名",
-  lastModified: "最終更新日時"
-});
-
-// コンテキストを検証
-const validation = ModelContextProtocol.validateContext(context);
-if (!validation.valid) {
-  console.error("検証エラー:", validation.errors);
-}
-
-// コンテキストをシリアライズ
-const json = ModelContextProtocol.serializeContext(context);
-
-// JSONからコンテキストをパース
-const parsedContext = ModelContextProtocol.parseContext(json);
-
-// 要素をIDで検索
-const element = ModelContextProtocol.findElementById(context, "element-id");
-
-// 要素を名前で検索
-const elements = ModelContextProtocol.findElementsByName(context, "要素名");
-
-// 要素の子要素を取得
-const children = ModelContextProtocol.getElementChildren(context, "parent-id");
-```
-
-### アダプター
-
-#### FigmaToModelContextAdapter
-
-Figma APIデータをModel Context形式に変換するためのアダプター。
-
-```typescript
-const adapter = new FigmaToModelContextAdapter(client);
-
-// Figmaファイルをモデルコンテキストに変換
-const modelContext = await adapter.convertFileToModelContext("file-key", {
-  includeStyles: true,
-  includeVariables: true,
-  includeImages: true,
-  teamId: "team-id" // コンポーネントライブラリにアクセスする場合
-});
-```
-
-### AI統合
-
-#### AIModelIntegrationFactory
-
-AIモデル統合を作成するためのファクトリー。
-
-```typescript
-// RooCode統合を作成
-const rooCodeIntegration = AIModelIntegrationFactory.createIntegration("roocode");
-
-// Cline統合を作成
-const clineIntegration = AIModelIntegrationFactory.createIntegration("cline");
-```
-
-#### RooCodeIntegration
-
-RooCodeとの統合インターフェース。
-
-```typescript
-// コンテキストをフォーマット
-const formattedContext = rooCodeIntegration.formatContext(modelContext);
-
-// プロンプトにコンテキストを注入
-const enhancedPrompt = rooCodeIntegration.injectContext(modelContext, prompt);
-```
-
-#### ClineIntegration
-
-Clineとの統合インターフェース。
-
-```typescript
-// コンテキストをフォーマット
-const formattedContext = clineIntegration.formatContext(modelContext);
-
-// プロンプトにコンテキストを注入
-const enhancedPrompt = clineIntegration.injectContext(modelContext, prompt);
-```
+詳しくは、[mcp.md](/mcp.md)および[model_context_protocol_design.md](/docs/model_context_protocol_design.md)を参照してください。
 
 ## プロジェクト構造
 
 ```
-figma-model-context-protocol/
+figma-mcp/
 ├── src/
 │   ├── api/
-│   │   ├── figma_client.ts         # 基本APIクライアント
+│   │   ├── client.ts               # 基本APIクライアントインターフェース
+│   │   ├── figma_client.ts         # Figma APIクライアント
 │   │   ├── figma_file_api.ts       # ファイルAPI
 │   │   ├── figma_components_api.ts # コンポーネントAPI
 │   │   ├── figma_comments_api.ts   # コメントAPI
 │   │   ├── figma_webhooks_api.ts   # WebhooksAPI
-│   │   └── figma_variables_api.ts  # 変数API
+│   │   ├── figma_variables_api.ts  # 変数API
+│   │   └── types.ts                # 共通型定義
 │   ├── auth/
 │   │   └── figma_auth.ts           # 認証モジュール
-│   ├── model/
-│   │   └── model_context_protocol.ts # モデルコンテキストプロトコル
-│   ├── adapters/
-│   │   ├── figma_to_model_context_adapter.ts # Figmaアダプター
-│   │   └── ai_model_integration.ts # AIモデル統合
-│   ├── transports/
-│   │   ├── stdio.ts                # 標準入出力トランスポート
-│   │   └── sse.ts                  # SSEトランスポート
-│   ├── utils/
-│   │   └── performance.ts          # パフォーマンス最適化
 │   └── mod.ts                      # メインモジュール
-├── tests/
-│   └── integration_test.ts         # 統合テスト
-├── examples/
-│   ├── basic_usage.ts              # 基本的な使用例
-│   └── ai_integration.ts           # AI統合の例
 ├── docs/
-│   └── README.md                   # 詳細ドキュメント
-├── server.ts                       # MCPサーバー実装例
+│   └── model_context_protocol_design.md # MCPデザインドキュメント
+├── server.ts                       # MCPサーバー実装
 ├── deno.json                       # Denoプロジェクト設定
 ├── mcp.md                          # MCP仕様まとめ
 └── figma.md                        # Figma API仕様
@@ -413,4 +272,4 @@ MITライセンス
 
 ## 貢献
 
-プルリクエストは歓迎します。大きな変更を行う場合は、まずissueを開いて変更内容を議論してください。
+貢献ガイドラインについては[CONTRIBUTING.md](/CONTRIBUTING.md)を参照してください。
