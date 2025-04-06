@@ -9,8 +9,10 @@
 		"dev": "deno run --watch --allow-net --allow-env --allow-read --allow-write server.ts"
 	},
 	"imports": {
+		"express": "npm:express@^5.1.0",
 		"std/": "https://deno.land/std@0.203.0/",
-		"@mcp/sdk": "npm:@modelcontextprotocol/sdk@1.8.0"
+		"@mcp/sdk": "npm:@modelcontextprotocol/sdk@1.8.0",
+		"zod": "npm:zod@^3.24.2"
 	},
 	"author": "tyakachika@gmail.com",
 	"license": "MIT"

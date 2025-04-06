@@ -45,6 +45,24 @@ export PORT=8080
 deno task start
 ```
 
+### Dockerを使用した実行
+
+このプロジェクトはDockerコンテナとしても実行できます。
+
+```bash
+# イメージをビルド
+docker build -t figma-mcp .
+
+# コンテナを実行（SSEモード）
+docker run --rm -p 8888:8888 --env-file .env figma-mcp
+
+# 異なるポートを指定して実行
+docker run --rm -p 3000:8888 --env-file .env figma-mcp
+
+# カスタムコマンドを実行（例：STDIOモード）
+docker run --rm --env-file .env figma-mcp deno run --allow-net --allow-read --allow-env --allow-run main.ts --mode=stdio
+```
+
 ### 基本的な使用例
 
 ```typescript
@@ -260,7 +278,9 @@ figma-mcp/
 │   └── mod.ts                      # メインモジュール
 ├── docs/
 │   └── model_context_protocol_design.md # MCPデザインドキュメント
-├── server.ts                       # MCPサーバー実装
+├── main.ts                         # MCPサーバーエントリーポイント
+├── Dockerfile                      # Dockerコンテナ定義
+├── .dockerignore                   # Dockerビルド時の除外ファイル
 ├── deno.json                       # Denoプロジェクト設定
 ├── mcp.md                          # MCP仕様まとめ
 └── figma.md                        # Figma API仕様

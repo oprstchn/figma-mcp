@@ -4,7 +4,7 @@
  * 全ての Figma API にアクセスするための統合クライアント
  */
 
-import { FigmaAuthConfig, FigmaFile, FigmaFileParams, FigmaImageParams, FigmaImageResponse, FigmaNode } from "./types.ts";
+import type { FigmaAuthConfig, FigmaFile, FigmaFileParams, FigmaImageParams, FigmaImageResponse, FigmaNode } from "./types.ts";
 import { Client } from "./client.ts";
 import { FigmaCommentsClient } from "./figma_comments_api.ts";
 import { FigmaComponentsClient } from "./figma_components_api.ts";

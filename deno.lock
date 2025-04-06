@@ -2,7 +2,9 @@
   "version": "4",
   "specifiers": {
     "npm:@modelcontextprotocol/sdk@*": "1.8.0_express@5.0.1_zod@3.24.2",
-    "npm:@modelcontextprotocol/sdk@1.8.0": "1.8.0_express@5.0.1_zod@3.24.2"
+    "npm:@modelcontextprotocol/sdk@1.8.0": "1.8.0_express@5.0.1_zod@3.24.2",
+    "npm:express@^5.1.0": "5.1.0",
+    "npm:zod@^3.24.2": "3.24.2"
   },
   "npm": {
     "@modelcontextprotocol/sdk@1.8.0_express@5.0.1_zod@3.24.2": {
@@ -12,7 +14,7 @@
         "cors",
         "cross-spawn",
         "eventsource",
-        "express",
+        "express@5.0.1",
         "express-rate-limit",
         "pkce-challenge",
         "raw-body",
@@ -147,7 +149,7 @@
     "express-rate-limit@7.5.0_express@5.0.1": {
       "integrity": "sha512-eB5zbQh5h+VenMPM3fh+nw1YExi5nMr6HUCR62ELSP11huvxm/Uir1H1QEyTkk5QX6A58pX6NmaTMceKZ0Eodg==",
       "dependencies": [
-        "express"
+        "express@5.0.1"
       ]
     },
     "express@5.0.1": {
@@ -179,11 +181,43 @@
         "router",
         "safe-buffer",
         "send",
-        "serve-static",
+        "serve-static@2.1.0",
         "setprototypeof",
         "statuses",
         "type-is",
         "utils-merge",
+        "vary"
+      ]
+    },
+    "express@5.1.0": {
+      "integrity": "sha512-DT9ck5YIRU+8GYzzU5kT3eHGA5iL+1Zd0EutOmTE9Dtk+Tvuzd23VBU+ec7HPNSTxXYO55gPV/hq4pSBJDjFpA==",
+      "dependencies": [
+        "accepts",
+        "body-parser",
+        "content-disposition",
+        "content-type",
+        "cookie",
+        "cookie-signature",
+        "debug@4.4.0",
+        "encodeurl",
+        "escape-html",
+        "etag",
+        "finalhandler",
+        "fresh",
+        "http-errors",
+        "merge-descriptors",
+        "mime-types",
+        "on-finished",
+        "once",
+        "parseurl",
+        "proxy-addr",
+        "qs@6.14.0",
+        "range-parser",
+        "router",
+        "send",
+        "serve-static@2.2.0",
+        "statuses",
+        "type-is",
         "vary"
       ]
     },
@@ -394,6 +428,15 @@
     },
     "serve-static@2.1.0": {
       "integrity": "sha512-A3We5UfEjG8Z7VkDv6uItWw6HY2bBSBJT1KtVESn6EOoOr2jAxNhxWCLY3jDE2WcuHXByWju74ck3ZgLwL8xmA==",
+      "dependencies": [
+        "encodeurl",
+        "escape-html",
+        "parseurl",
+        "send"
+      ]
+    },
+    "serve-static@2.2.0": {
+      "integrity": "sha512-61g9pCh0Vnh7IutZjtLGGpTA355+OPn2TyDv/6ivP2h/AdAVX9azsoxmg2/M6nZeQZNYBEwIcsne1mJd9oQItQ==",
       "dependencies": [
         "encodeurl",
         "escape-html",
@@ -677,7 +720,9 @@
   },
   "workspace": {
     "dependencies": [
-      "npm:@modelcontextprotocol/sdk@1.8.0"
+      "npm:@modelcontextprotocol/sdk@1.8.0",
+      "npm:express@^5.1.0",
+      "npm:zod@^3.24.2"
     ]
   }
 }
