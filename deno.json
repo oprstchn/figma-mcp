@@ -1,7 +1,4 @@
 {
-	"name": "figma-mcp",
-	"version": "1.0.0",
-	"description": "Figmaデザインデータをモデルコンテキストとして提供するプロトコル",
 	"tasks": {
 		"test": "deno test --allow-net --allow-env --allow-read --allow-write tests/",
 		"example:basic": "deno run --allow-net --allow-env --allow-read --allow-write examples/basic_usage.ts",
@@ -12,7 +9,7 @@
 		"dev": "deno run --watch --allow-net --allow-env --allow-read --allow-write server.ts"
 	},
 	"imports": {
-		"std/dotenv": "https://deno.land/std@0.203.0/dotenv",
+		"std/": "https://deno.land/std@0.203.0/",
 		"@mcp/sdk": "npm:@modelcontextprotocol/sdk@1.8.0"
 	},
 	"author": "tyakachika@gmail.com",
